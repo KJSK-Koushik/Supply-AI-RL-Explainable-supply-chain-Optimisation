@@ -54,8 +54,42 @@ suppliers:
 # the real UCI median selling price using this margin assumption.
 economics:
   gross_margin: 0.45            # unit_cost = price * (1 - gross_margin)
-  holding_cost_per_unit_day: 0.02   # as a fraction of unit cost
+
+  # Daily holding cost as a fraction of unit cost. 0.0015/day is ~55%/year,
+  # which is above the 20-30%/year cost-of-capital-plus-storage figure usually
+  # quoted, and deliberately so: this retailer sells seasonal gift lines, where
+  # markdown and obsolescence risk dominate pure storage cost. Anything near
+  # 0.02/day (730%/year) is not defensible; anything near 0.0007 makes stock
+  # effectively free to hold and collapses the ordering decision.
+  holding_cost_per_unit_day: 0.0015
+
   stockout_penalty_multiplier: 1.5  # penalty per unmet unit, x gross profit
   backlog_enabled: true
   backlog_carryover_fraction: 0.6   # 60% of unmet demand waits, 40% is lost
-  warehouse_capacity_per_product: 2000
+
+  # ONE shared warehouse, not a private bin per product. This is the single
+  # most important structural choice in the model. With per-product capacity,
+  # products never compete and "order the maximum for everything" is optimal,
+  # so the quantity decision is trivial and any fixed rule matches a learned
+  # policy. With shared space, stocking one product denies room to another,
+  # which is a genuine allocation problem -- and one that per-product (s,S)
+  # rules cannot express, because each rule sees only its own product.
+  #
+  # 20,000 units is ~17 days of total average demand across the ten SKUs
+  # (~1,175 units/day). Chosen by sweeping capacity against a constant-order
+  # policy: below ~16,000 the business barely breaks even because the slowest
+  # supplier's 8-day lead time cannot be covered, and above ~25,000 profit
+  # plateaus and space stops binding, which collapses the allocation problem.
+  warehouse_capacity_total: 20000
+
+  # Goods that arrive when the warehouse is full are refused at the door. They
+  # were already paid for, so this is a real loss -- which is what makes
+  # ordering into a full pipeline expensive rather than merely wasteful.
+  overflow_is_written_off: true
+
+  # Stock still on the shelf when the episode ends is credited back at this
+  # fraction of unit cost. Without it, a 180-day horizon treats every leftover
+  # unit as a total write-off, which is an artefact of where we stopped
+  # counting rather than a real cost, and biases the agent to under-order near
+  # the end of an episode. 0.6 represents liquidation at a markdown.
+  terminal_salvage_fraction: 0.6
