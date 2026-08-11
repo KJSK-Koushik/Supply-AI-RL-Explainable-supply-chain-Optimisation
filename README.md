@@ -1,5 +1,8 @@
 # SupplyAI-RL — Explainable Supply Chain Optimization
 
+[![CI](https://github.com/KJSK-Koushik/Supply-AI-RL-Explainable-supply-chain-Optimisation/actions/workflows/ci.yml/badge.svg)](https://github.com/KJSK-Koushik/Supply-AI-RL-Explainable-supply-chain-Optimisation/actions/workflows/ci.yml)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+
 A decision-support system in which a **reinforcement learning agent** makes
 inventory replenishment and supplier-selection decisions, and a **large
 language model** explains those decisions in plain business language and
