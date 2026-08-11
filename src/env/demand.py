@@ -19,7 +19,10 @@ rising to November 1.75).
 
 from __future__ import annotations
 
+import copy
 import json
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 
@@ -82,10 +85,20 @@ class DemandGenerator:
         return self.mean * self.dow_factor[dow] * self.month_factor[month]
 
 
-def load_demand_stats(cfg: dict | None = None) -> dict:
-    cfg = cfg or load_config("data")
-    path = resolve(cfg["paths"]["demand_stats"])
+@lru_cache(maxsize=1)
+def _read_demand_stats(path_str: str) -> dict:
+    path = Path(path_str)
     if not path.exists():
         raise FileNotFoundError(f"{path} not found. Run `python -m src.data.run_pipeline` first.")
     with path.open(encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def load_demand_stats(cfg: dict | None = None) -> dict:
+    """Calibrated statistics, parsed once and deep-copied per caller.
+
+    A grid search builds thousands of environments; re-parsing this JSON each
+    time dominated the runtime.
+    """
+    cfg = cfg or load_config("data")
+    return copy.deepcopy(_read_demand_stats(str(resolve(cfg["paths"]["demand_stats"]))))
