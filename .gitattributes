@@ -1,0 +1,8 @@
+# Normalise line endings. Development is on Windows, CI runs on Linux; without
+# this, every file round-trips between CRLF and LF and shows up as a diff.
+* text=auto eol=lf
+
+*.png binary
+*.xlsx binary
+*.pkl binary
+*.zip binary

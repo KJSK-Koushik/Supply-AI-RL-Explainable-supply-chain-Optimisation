@@ -1,0 +1,35 @@
+# Phase 6/7 - LLM configuration (OpenRouter, OpenAI-compatible API)
+# The API key lives in .env as OPENROUTER_API_KEY and is never committed.
+
+provider:
+  base_url: "https://openrouter.ai/api/v1"
+  api_key_env: "OPENROUTER_API_KEY"
+  # Swap models here without touching any code.
+  model: "anthropic/claude-sonnet-4.5"
+  fallback_model: "google/gemini-2.0-flash-001"
+  timeout_seconds: 30
+  max_retries: 3
+
+explainer:
+  temperature: 0.2              # low - we want faithful phrasing, not creativity
+  max_tokens: 300
+  # The LLM receives ONLY computed facts and may not introduce new numbers.
+  # Any number in the output must appear in the supplied fact dict; the
+  # post-check in src/llm/explainer.py enforces this.
+  enforce_number_grounding: true
+
+scenario_generator:
+  temperature: 0.8              # higher - we want varied stress tests
+  max_tokens: 500
+  response_format: "json_object"
+  # Generated values are clamped to these ranges before reaching the simulator.
+  clamps:
+    demand_multiplier: [0.2, 5.0]
+    duration_days: [1, 30]
+    lead_time_extra_days: [0, 20]
+    outage_days: [1, 21]
+
+fallback:
+  # Deterministic template explainer used when no API key is present, the
+  # network is down, or the grounding check fails. The demo must never break.
+  enabled: true

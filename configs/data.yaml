@@ -1,0 +1,71 @@
+# Phase 1 - data pipeline configuration
+#
+# PRIMARY source is UCI Online Retail II (real transactional data).
+# The Kaggle retail_store_inventory.csv is kept ONLY as a documented
+# negative finding: correlation analysis showed no learnable structure
+# (all demand drivers ~0.00) and target leakage in its Demand Forecast
+# column. See reports/dataset_selection.md.
+
+paths:
+  uci_raw: data/raw/online_retail_II.xlsx
+  uci_cache: data/processed/_uci_raw.pkl        # pickle cache; xlsx parse is slow
+  kaggle_raw: data/raw/retail_store_inventory.csv
+  daily_panel: data/processed/daily_demand.csv
+  demand_stats: data/processed/demand_stats.json
+  audit_report: data/processed/data_audit.json
+  figures: results/figures
+
+cleaning:
+  drop_cancellations: true        # invoices starting with 'C'
+  drop_nonpositive_quantity: true
+  drop_nonpositive_price: true
+  drop_service_codes: true        # POST, DOT, M, BANK CHARGES, AMAZONFEE, etc.
+  service_codes:
+    - POST
+    - DOT
+    - M
+    - C2
+    - BANK CHARGES
+    - AMAZONFEE
+    - ADJUST
+    - ADJUST2
+    - TEST001
+    - TEST002
+    - PADS
+    - GIFT
+    - S
+    - B
+    - CRUK
+  # A single wholesale mega-order can dominate a product's whole history.
+  # Products whose top day exceeds this share of total volume are excluded.
+  max_single_day_share: 0.35
+  # Winsorise remaining daily spikes at this percentile before fitting stats,
+  # so one outlier day does not blow up the fitted variance.
+  winsorise_percentile: 0.99
+
+product_selection:
+  n_products: 10
+  # Rank candidates by volume, then pick a spread across demand regimes so the
+  # RL agent faces genuinely different problems (steady vs bursty vs intermittent).
+  candidate_pool: 60
+  min_mean_daily_demand: 15.0
+  max_zero_day_fraction: 0.55
+  # Demand-regime bands, applied to the winsorised coefficient of variation.
+  # These must be the same CV values reported in demand_stats.json, otherwise a
+  # product can be labelled 'bursty' while displaying a low CV in the figures.
+  regime_bands:
+    steady_max: 1.25       # CV < 1.25
+    moderate_max: 1.75     # 1.25 <= CV < 1.75, bursty above
+  # Target mix across those bands (must sum to n_products)
+  regime_mix:
+    steady: 4
+    moderate: 3
+    bursty: 3
+
+calendar:
+  # This retailer effectively does not trade on Saturdays (5,119 units across
+  # two years vs ~2M on other days). Saturdays are marked closed, not zero-demand.
+  closed_weekdays: [5]           # 0=Mon ... 6=Sun
+  train_test_split_date: "2011-06-01"   # everything after this is held-out evaluation
+
+seed: 42

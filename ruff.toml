@@ -1,0 +1,18 @@
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "data", "results", "notebooks"]
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = [
+    "E402",  # eda.py must call matplotlib.use("Agg") before importing pyplot
+    "E501",  # long lines are caught by the formatter, not the linter
+]
+
+[lint.per-file-ignores]
+# The Phase 0 smoke test deliberately groups imports one line per dependency
+# group -- that grouping is the point of the test, so leave it alone.
+"tests/test_phase0_env.py" = ["E401", "I001"]
+
+[format]
+quote-style = "double"

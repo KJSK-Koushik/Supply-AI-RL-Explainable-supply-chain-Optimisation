@@ -1,0 +1,33 @@
+# secrets
+.env
+*.key
+kaggle.json
+
+# data (large / redistributable-restricted)
+data/raw/*
+data/processed/*
+data/external/*
+!data/**/.gitkeep
+
+# python
+# note: the venv lives at D:\venvs\supplyai (outside the repo) to stay under
+# the Windows 260-character path limit -- see README Setup.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# results
+results/models/*
+results/logs/*
+results/junit.xml
+!results/**/.gitkeep
+
+# figures ARE committed -- they are report deliverables and small (~550 KB)
+!results/figures/*.png
+
+# tooling
+.ruff_cache/

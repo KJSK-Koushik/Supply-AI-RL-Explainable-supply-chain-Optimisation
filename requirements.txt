@@ -1,0 +1,31 @@
+# --- core numerics / data ---
+numpy>=1.26,<2.1
+pandas>=2.1
+scipy>=1.11
+openpyxl>=3.1            # reading online_retail_II.xlsx
+
+# --- RL ---
+gymnasium>=0.29,<1.1
+stable-baselines3>=2.3
+sb3-contrib>=2.3         # MaskablePPO
+torch>=2.2
+
+# --- config / validation ---
+pydantic>=2.6
+pyyaml>=6.0
+python-dotenv>=1.0
+
+# --- LLM (OpenRouter, OpenAI-compatible) ---
+openai>=1.30
+tenacity>=8.2            # retry on transient API errors
+
+# --- dashboard / plots ---
+streamlit>=1.35
+plotly>=5.20
+matplotlib>=3.8
+seaborn>=0.13
+
+# --- logging / testing ---
+tensorboard>=2.16
+pytest>=8.0
+tqdm>=4.66

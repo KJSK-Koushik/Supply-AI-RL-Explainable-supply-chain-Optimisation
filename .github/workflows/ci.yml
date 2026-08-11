@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # A new push supersedes an in-flight run on the same branch.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: lint + tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU wheels only: no CUDA runner, and the GPU build is ~2 GB larger.
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format check
+        run: ruff format --check .
+
+      - name: Tests
+        # Raw data is gitignored, so the data-dependent tests self-skip here.
+        # What this proves is that the dependency set installs and imports
+        # cleanly and that every config parses -- which is what breaks in
+        # practice when someone bumps a version.
+        run: pytest -v --junitxml=results/junit.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}
+          path: results/junit.xml
+          if-no-files-found: ignore
+
+  pipeline:
+    name: end-to-end data pipeline
+    runs-on: ubuntu-latest
+    # Downloads 45 MB from UCI, so it does not run on every push. Trigger it
+    # manually, or let it run on the weekly schedule below, to verify the full
+    # pipeline still reproduces the calibrated numbers.
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Fetch datasets
+        run: python scripts/fetch_data.py
+
+      - name: Run pipeline
+        run: python -m src.data.run_pipeline
+
+      - name: Run full test suite
+        run: pytest -v
+
+      - name: Upload calibration outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-outputs
+          path: |
+            data/processed/demand_stats.json
+            data/processed/dataset_audit.json
+            data/processed/data_audit.json
+            results/figures/*.png
