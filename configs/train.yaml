@@ -10,6 +10,11 @@
 # validation costs roughly a 3x slowdown across every run.
 
 run:
+  # MaskablePPO makes illegal actions unavailable rather than merely
+  # punished. The first unmasked 1M-step run lost 25,308 to warehouse
+  # overflow and 13,671 to ordering fees -- both from actions the environment
+  # already knows are impossible or pointless at decision time.
+  use_action_masking: true
   total_timesteps: 1_000_000
   n_envs: 8                  # subprocess envs; 8 measured best on 12 cores
   seed: 0

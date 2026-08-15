@@ -29,11 +29,22 @@ from src.config import resolve
 # gamma must be high because a 6-8 day lead time means today's order pays off
 # a week later, and ent_coef matters because a collapsed policy (always order
 # nothing) is the classic failure mode here.
+# Ranges revised after the first two 1M-step runs. What those showed:
+#   * action masking is worth ~3x on its own (23,717 -> 72,740 best), so the
+#     sweep assumes it and does not search over it
+#   * the masked run plateaued near 70,000 against an 83,624 baseline, with
+#     the remaining gap almost entirely stockouts (fill 93.7% vs 98.3%) and
+#     supplier fragmentation (ordering fees 2.6x the baseline's)
+#   * both runs oscillated throughout, which points at learning rate and
+#     entropy rather than capacity
+# Hence: lower learning rates to damp the oscillation, a wider entropy range
+# (too little exploration is the likely cause of the supplier-consolidation
+# blind spot), and larger networks to see if capacity is binding at all.
 GRID = {
-    "ppo.learning_rate": [1.0e-4, 3.0e-4, 1.0e-3],
-    "ppo.ent_coef": [0.003, 0.01, 0.03],
-    "ppo.gamma": [0.99, 0.995],
-    "ppo.n_steps": [512],
+    "ppo.learning_rate": [5.0e-5, 1.0e-4, 3.0e-4],
+    "ppo.ent_coef": [0.001, 0.005, 0.02, 0.05],
+    "ppo.gamma": [0.995, 0.999],
+    "ppo.n_steps": [512, 1024],
     "ppo.net_arch": ["[128,128]", "[256,256]"],
 }
 

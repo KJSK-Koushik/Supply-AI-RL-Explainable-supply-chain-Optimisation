@@ -112,3 +112,77 @@ def test_baseline_bar_is_recorded():
     best = data["policies"][data["best_baseline"]]["eval"]
     assert best["total_profit"] > 50_000
     assert best["total_profit_std"] > 0
+
+
+# ------------------------------------------------------------ action masking
+
+
+def test_mask_shape_and_always_has_a_legal_move():
+    from src.env.supply_chain_env import SupplyChainEnv
+
+    env = SupplyChainEnv(seed=0)
+    env.reset(seed=0)
+    m = env.action_masks()
+    assert m.shape == (env.n_products * env.n_joint_actions,)
+    assert m.dtype == bool
+    per_product = m.reshape(env.n_products, env.n_joint_actions)
+    assert per_product.any(axis=1).all(), "a product with no legal action would deadlock PPO"
+
+
+def test_mask_blocks_offline_suppliers():
+    from src.env.supply_chain_env import SupplyChainEnv
+
+    env = SupplyChainEnv(seed=0)
+    env.reset(seed=0)
+    env.suppliers.force_outage(1, 5)
+    m = env.action_masks().reshape(env.n_products, env.n_joint_actions)
+
+    supplier_of = np.arange(env.n_joint_actions) % env.n_suppliers
+    bucket_of = np.arange(env.n_joint_actions) // env.n_suppliers
+    # Every non-zero order through the offline supplier must be unavailable.
+    blocked = (supplier_of == 1) & (bucket_of > 0)
+    assert not m[:, blocked].any(), "ordering from an offline supplier is still allowed"
+    # Other suppliers are unaffected.
+    assert m[:, (supplier_of == 0) & (bucket_of > 0)].any()
+
+
+def test_mask_blocks_orders_that_cannot_fit():
+    """A full warehouse must make large orders unavailable -- this is the
+    25,308 overflow loss the first unmasked run suffered."""
+    from src.env.supply_chain_env import SupplyChainEnv
+
+    env = SupplyChainEnv(seed=0)
+    env.reset(seed=0)
+    env.stock[:] = env.capacity_total / env.n_products  # warehouse full
+    m = env.action_masks().reshape(env.n_products, env.n_joint_actions)
+
+    bucket_of = np.arange(env.n_joint_actions) // env.n_suppliers
+    assert not m[:, bucket_of == env.n_buckets - 1].any(), "largest order allowed into a full store"
+    assert m[:, bucket_of == 0].all(), "ordering nothing must always stay legal"
+
+
+def test_mask_permits_large_orders_when_empty():
+    from src.env.supply_chain_env import SupplyChainEnv
+
+    env = SupplyChainEnv(seed=0)
+    env.reset(seed=0)
+    env.stock[:] = 0.0
+    env.suppliers.pipeline[:] = 0.0
+    m = env.action_masks().reshape(env.n_products, env.n_joint_actions)
+    assert m.all(), "an empty warehouse should permit every action"
+
+
+def test_maskable_agent_trains_and_scores():
+    from sb3_contrib import MaskablePPO
+
+    from src.agents.rl_policy import RLPolicy
+    from src.env.supply_chain_env import SupplyChainEnv
+    from src.eval.runner import run_episode
+
+    model = MaskablePPO(
+        "MlpPolicy", SupplyChainEnv(seed=0), device="cpu", n_steps=64, batch_size=64
+    )
+    policy = RLPolicy(model)
+    assert policy._is_maskable()
+    res = run_episode(policy, seed=999)
+    assert np.isfinite(res["total_profit"])

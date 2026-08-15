@@ -142,7 +142,11 @@ def main() -> None:
     log_dir = resolve(cfg["paths"]["logs"]) / args.name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    from stable_baselines3 import PPO
+    masked = bool(run_cfg.get("use_action_masking", False))
+    if masked:
+        from sb3_contrib import MaskablePPO as Algo
+    else:
+        from stable_baselines3 import PPO as Algo
     from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback
 
     venv = make_vec_env(run_cfg["n_envs"], run_cfg["seed"], log_dir)
@@ -153,10 +157,10 @@ def main() -> None:
     ckpt_path = out_dir / "checkpoint.zip"
     if args.resume and ckpt_path.exists():
         print(f"resuming from {ckpt_path}", flush=True)
-        model = PPO.load(str(ckpt_path), env=venv, device=run_cfg["device"])
+        model = Algo.load(str(ckpt_path), env=venv, device=run_cfg["device"])
         done_steps = model.num_timesteps
     else:
-        model = PPO(
+        model = Algo(
             policy,
             venv,
             device=run_cfg["device"],
@@ -177,7 +181,11 @@ def main() -> None:
         name_prefix="checkpoint",
     )
 
-    print(f"run '{args.name}': {remaining:,} steps, {run_cfg['n_envs']} envs", flush=True)
+    print(
+        f"run '{args.name}': {remaining:,} steps, {run_cfg['n_envs']} envs, "
+        f"{'MaskablePPO' if masked else 'PPO'}",
+        flush=True,
+    )
     print(
         f"  net_arch={net_arch}  lr={ppo_cfg.get('learning_rate')}  "
         f"ent_coef={ppo_cfg.get('ent_coef')}  gamma={ppo_cfg.get('gamma')}",
@@ -203,6 +211,7 @@ def main() -> None:
         "wall_seconds": dt,
         "steps_per_second": remaining / dt if dt > 0 else 0.0,
         "best_eval_profit": float(eval_cb.best),
+        "action_masking": masked,
         "config": cfg,
     }
     with (out_dir / "summary.json").open("w", encoding="utf-8") as fh:

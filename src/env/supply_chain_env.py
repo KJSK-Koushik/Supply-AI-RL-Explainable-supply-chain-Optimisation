@@ -222,6 +222,47 @@ class SupplyChainEnv(gym.Env):
         quantities = self.order_buckets[bucket_idx] * self.demand_gen.mean
         return np.floor(quantities), supplier
 
+    def action_masks(self) -> np.ndarray:
+        """Which joint actions are currently legal, for MaskablePPO.
+
+        The first 1M-step run lost 25,308 to overflow -- goods ordered into a
+        full warehouse, paid for, then refused at the door -- and a further
+        13,671 to ordering fees, by spreading orders across all three suppliers
+        nearly every day. Both are *impossible* or *pointless* actions the
+        environment already knows about at decision time, so making them
+        unavailable is strictly better than making the agent spend capacity
+        discovering they are bad from a reward signal that arrives six days
+        later, buried among nine other products' outcomes.
+
+        Two rules:
+          1. a supplier that is offline cannot be ordered from at all
+          2. an order larger than the warehouse can physically accept is
+             disallowed
+
+        Returns a flat boolean array of shape (n_products * n_joint_actions,),
+        which is the layout sb3-contrib expects for a MultiDiscrete space.
+        """
+        available = self.suppliers.is_available()
+        headroom = max(
+            self.capacity_total - self.stock.sum() - self.suppliers.in_transit().sum(), 0.0
+        )
+
+        # quantity[p, b] = units product p would order at bucket b
+        qty = np.floor(self.order_buckets[None, :] * self.demand_gen.mean[:, None])
+
+        bucket_of = np.arange(self.n_joint_actions) // self.n_suppliers
+        supplier_of = np.arange(self.n_joint_actions) % self.n_suppliers
+
+        mask = np.ones((self.n_products, self.n_joint_actions), dtype=bool)
+        mask &= available[supplier_of][None, :]
+        mask &= qty[:, bucket_of] <= headroom
+
+        # The zero-order action must always survive, or a full warehouse or a
+        # total outage would leave the agent with no legal move at all.
+        zero_actions = bucket_of == 0
+        mask[:, zero_actions] = True
+        return mask.ravel()
+
     def encode_action(self, buckets: np.ndarray, suppliers: np.ndarray) -> np.ndarray:
         """Inverse of decode_action, so rule-based policies can emit the same
         joint encoding the agent uses."""
