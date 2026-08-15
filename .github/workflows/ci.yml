@@ -64,8 +64,8 @@ jobs:
     name: end-to-end data pipeline
     runs-on: ubuntu-latest
     # Downloads 45 MB from UCI, so it does not run on every push. Trigger it
-    # manually, or let it run on the weekly schedule below, to verify the full
-    # pipeline still reproduces the calibrated numbers.
+    # by hand from the Actions tab to verify the full pipeline still reproduces
+    # the calibrated numbers on a clean machine.
     if: github.event_name == 'workflow_dispatch'
 
     steps:

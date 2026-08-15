@@ -101,14 +101,60 @@ reports/     write-ups and figures for submission
 
 | Phase | Description | State |
 |---|---|---|
-| 0 | Scaffold, dependencies, configs | done - 10/10 tests pass |
-| 1 | Data pipeline and calibration | done - 19/19 tests pass |
-| 2 | Supply chain simulator | pending |
-| 3 | Baseline policies | pending |
-| 4 | RL agent | pending |
-| 5 | Evaluation harness | pending |
-| 6 | LLM explainer | pending |
+| 0 | Scaffold, dependencies, configs | done |
+| 1 | Data pipeline and calibration | done |
+| 2 | Supply chain simulator | done |
+| 3 | Baseline policies, tuned | done |
+| 4 | RL agent | trained; hyperparameter sweep running |
+| 5 | Evaluation harness | done - see results below |
+| 6 | LLM explainer | next |
 | 7 | LLM scenario generator | pending |
 | 8 | Dashboard | pending |
 | 9 | LLM-curriculum training | pending |
 | 10 | Report pack | pending |
+
+92 tests pass. Run them with:
+
+```bash
+D:/venvs/supplyai/Scripts/python -m pytest tests/ -q
+```
+
+Machines without the dashboard packages installed — CI, Kaggle — should
+deselect the checks that need them: `pytest -q -m "not local_env"`.
+
+## Current results
+
+Scored on 30 held-out seeds that neither the agent nor the baselines were
+tuned on. Profit is per 180-day episode, in GBP.
+
+| Policy | Profit | Fill rate | Ordering cost |
+|---|---|---|---|
+| forecast + safety stock (best classical) | 83,624 | 97.9% | 2,729 |
+| newsvendor | 82,049 | 98.0% | 3,275 |
+| EOQ + reorder point | 72,302 | 96.8% | 2,626 |
+| **MaskablePPO agent, 1M steps** | **71,227** | **94.3%** | **7,068** |
+| (s,S) | 70,365 | 94.9% | 2,905 |
+| PPO without action masking, 1M steps | 22,566 | 94.8% | 13,988 |
+
+**The tuned classical policy currently beats the RL agent** by 12,397 per
+episode (paired t = -9.22, n = 30, significant). The comparison is paired
+because both policies meet identical customers on each seed.
+
+This is reported as a result rather than buried. The comparison is fair by
+construction — same environment, same seeds, same action granularity, and the
+baselines were grid-search tuned rather than left at textbook defaults, which
+lifted the best of them from 66,395 to 84,920 during tuning. Beating a weak
+baseline would have proved nothing.
+
+Where the remaining gap sits: stockouts ~4,700, fragmented sourcing ~4,300
+(the agent pays 2.6x the baseline's ordering fees), lost revenue ~2,900.
+
+Action masking is the largest single lever found so far, worth roughly 3x on
+its own. A sweep of 8 configurations over 6M steps is running to test whether
+the rest of the gap can be closed.
+
+Regenerate the figures behind these numbers:
+
+```bash
+D:/venvs/supplyai/Scripts/python -m src.eval.result_figures
+```

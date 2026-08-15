@@ -29,5 +29,10 @@ results/junit.xml
 # figures ARE committed -- they are report deliverables and small (~550 KB)
 !results/figures/*.png
 
+# Office lock files, written next to a document while it is open and deleted
+# on close. Transient and machine-local; committing one would confuse anyone
+# who cloned the repo while a document happened to be open here.
+~$*
+
 # tooling
 .ruff_cache/
