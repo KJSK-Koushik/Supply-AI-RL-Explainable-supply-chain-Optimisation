@@ -23,6 +23,8 @@ import subprocess
 import sys
 import time
 
+import numpy as np
+
 from src.config import resolve
 
 # Ranges revised after the first two 1M-step runs. What those showed:
@@ -82,8 +84,23 @@ def run_one(name: str, params: dict, steps: int, extra: list[str]) -> dict:
         with summary_path.open(encoding="utf-8") as fh:
             best = json.load(fh).get("best_eval_profit")
 
-    if best is None:
-        print(f"  {name}: FAILED\n{proc.stdout[-800:]}\n{proc.stderr[-800:]}", flush=True)
+    # -inf is the sentinel train_ppo starts from, so a run that never reached
+    # its first evaluation reports it verbatim. Left as a number it would sort
+    # like a real (terrible) score, be picked as a survivor if everything
+    # failed, and serialise as `-Infinity`, which is not valid JSON for anything
+    # but Python's own reader. A config that produced no measurement did not
+    # produce a bad result; it produced no result.
+    # bool(), not the bare `and`: np.isfinite returns np.bool_, which json
+    # refuses to serialise and would take the whole sweep down at the first
+    # checkpoint write.
+    ok = bool(best is not None and np.isfinite(best))
+    if not ok:
+        why = "no summary written" if best is None else "never reached an evaluation"
+        print(
+            f"  {name}: FAILED ({why})\n{proc.stdout[-800:]}\n{proc.stderr[-800:]}",
+            flush=True,
+        )
+        best = None
 
     return {
         "name": name,
@@ -91,7 +108,7 @@ def run_one(name: str, params: dict, steps: int, extra: list[str]) -> dict:
         "steps": steps,
         "best_profit": best,
         "wall_seconds": dt,
-        "ok": best is not None,
+        "ok": ok,
     }
 
 
@@ -113,6 +130,10 @@ def main() -> None:
     print(f"SCREENING {args.budget} configs at {args.screen_steps:,} steps each", flush=True)
     for i, params in enumerate(configs(args.budget)):
         name = f"{args.tag}_s{i:02d}"
+        # Announced before it starts, not only after. A config takes tens of
+        # minutes and a full run over an hour; silence for that long is
+        # indistinguishable from a hang to whoever is watching the log.
+        print(f"  [{i + 1}/{args.budget}] {name} started: {params}", flush=True)
         r = run_one(name, params, args.screen_steps, extra)
         results.append(r)
         status = f"{r['best_profit']:,.0f}" if r["ok"] else "FAILED"
@@ -130,6 +151,14 @@ def main() -> None:
     print(f"\nFULL TRAINING for top {len(survivors)} at {args.steps:,} steps", flush=True)
     for i, s in enumerate(survivors):
         name = f"{args.tag}_full{i:02d}"
+        # Screening measured this exact config, so the full run's duration is
+        # a scaling of a real timing rather than a guess.
+        eta = s["wall_seconds"] * args.steps / max(s["steps"], 1) / 60
+        print(
+            f"  [{i + 1}/{len(survivors)}] {name} started (~{eta:.0f} min "
+            f"expected, from {s['name']}): {s['params']}",
+            flush=True,
+        )
         r = run_one(name, s["params"], args.steps, extra)
         r["screened_from"] = s["name"]
         results.append(r)
