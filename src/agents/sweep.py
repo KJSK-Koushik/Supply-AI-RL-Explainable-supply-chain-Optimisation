@@ -25,10 +25,6 @@ import time
 
 from src.config import resolve
 
-# Ranges chosen around PPO defaults, widened where the environment suggests it:
-# gamma must be high because a 6-8 day lead time means today's order pays off
-# a week later, and ent_coef matters because a collapsed policy (always order
-# nothing) is the classic failure mode here.
 # Ranges revised after the first two 1M-step runs. What those showed:
 #   * action masking is worth ~3x on its own (23,717 -> 72,740 best), so the
 #     sweep assumes it and does not search over it

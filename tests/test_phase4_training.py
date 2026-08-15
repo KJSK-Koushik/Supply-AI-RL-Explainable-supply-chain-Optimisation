@@ -186,3 +186,41 @@ def test_maskable_agent_trains_and_scores():
     assert policy._is_maskable()
     res = run_episode(policy, seed=999)
     assert np.isfinite(res["total_profit"])
+
+
+# ------------------------------------------------------- honest comparison
+
+
+def test_paired_comparison_detects_a_real_difference():
+    from src.eval.compare import paired_comparison
+
+    # Consistently 1,000 better on every seed: small spread, clearly real.
+    a = [100.0 + i for i in range(30)]
+    b = [x - 1000.0 for x in a]
+    r = paired_comparison(a, b)
+    assert r["mean_difference"] == pytest.approx(1000.0)
+    assert r["significant"]
+
+
+def test_paired_comparison_rejects_noise():
+    """Two policies differing only by noise must NOT be called a win. This is
+    the guard against reporting an inside-the-noise result as an improvement."""
+    from src.eval.compare import paired_comparison
+
+    rng = np.random.default_rng(0)
+    a = rng.normal(80_000, 5_000, 30)
+    b = rng.normal(80_000, 5_000, 30)
+    assert not paired_comparison(list(a), list(b))["significant"]
+
+
+def test_comparison_uses_reporting_seeds_not_training_seeds():
+    """The comparison must score on EVAL_SEEDS. Scoring on the seeds that
+    selected the checkpoint would inflate the agent."""
+    import inspect
+
+    from src.eval import compare
+
+    src = inspect.getsource(compare.main)
+    assert "EVAL_SEEDS" in src
+    train_eval = set(load_config("train")["eval"]["seeds"])
+    assert not train_eval & set(EVAL_SEEDS)
