@@ -26,6 +26,13 @@ def env():
     return SupplyChainEnv(seed=0)
 
 
+def order_one(env, product: int, bucket: int, supplier: int) -> np.ndarray:
+    """Order a single product and nothing else, in joint-action encoding."""
+    a = np.zeros(env.n_products, dtype=int)
+    a[product] = int(bucket) * env.n_suppliers + int(supplier)
+    return a
+
+
 # ------------------------------------------------------------ gymnasium API
 
 
@@ -36,9 +43,25 @@ def test_passes_gymnasium_check(env):
 
 
 def test_spaces_shaped_correctly(env):
-    assert env.action_space.shape == (env.n_products * 2,)
+    # One joint (bucket, supplier) choice per product, not two separate ones.
+    assert env.action_space.shape == (env.n_products,)
+    assert env.n_joint_actions == env.n_buckets * env.n_suppliers
     obs, _ = env.reset(seed=0)
     assert env.observation_space.contains(obs)
+
+
+def test_action_encoding_roundtrips(env):
+    """encode_action and decode_action must be exact inverses, or rule-based
+    policies and the agent would be issuing different orders from the same
+    intent."""
+    env.reset(seed=0)
+    buckets = np.arange(env.n_products) % env.n_buckets
+    suppliers = np.arange(env.n_products) % env.n_suppliers
+    joint = env.encode_action(buckets, suppliers)
+    assert env.action_space.contains(np.asarray(joint, dtype=np.int64))
+    qty, sup = env.decode_action(joint)
+    assert (sup == suppliers).all()
+    assert np.allclose(qty, np.floor(env.order_buckets[buckets] * env.demand_gen.mean))
 
 
 def test_reset_is_reproducible(env):
@@ -84,7 +107,7 @@ def test_stock_never_negative(env):
 def test_shared_capacity_never_exceeded(env):
     """Total stock across ALL products must respect the one shared warehouse."""
     env.reset(seed=2)
-    big = np.array([[env.n_buckets - 1, 1]] * env.n_products).ravel()
+    big = env.encode_action(np.full(env.n_products, env.n_buckets - 1), np.full(env.n_products, 1))
     for _ in range(120):
         _, _, _, trunc, info = env.step(big)
         assert info["stock"].sum() <= env.capacity_total + 1e-6
@@ -96,7 +119,7 @@ def test_overflow_is_charged_when_warehouse_fills(env):
     """Ordering hard into a full store must produce refused deliveries that
     still cost money -- that is what makes over-ordering expensive."""
     env.reset(seed=15)
-    big = np.array([[env.n_buckets - 1, 1]] * env.n_products).ravel()
+    big = env.encode_action(np.full(env.n_products, env.n_buckets - 1), np.full(env.n_products, 1))
     overflow_units = overflow_loss = 0.0
     for _ in range(120):
         _, _, _, trunc, info = env.step(big)
@@ -111,9 +134,7 @@ def test_overflow_is_charged_when_warehouse_fills(env):
 def test_products_compete_for_shared_space(env):
     """Filling the store with one product must deny room to the others."""
     env.reset(seed=16)
-    hog = np.zeros(env.n_products * 2, dtype=int)
-    hog[0] = env.n_buckets - 1  # only product 0, largest bucket
-    hog[1] = 1
+    hog = order_one(env, product=0, bucket=env.n_buckets - 1, supplier=1)
     for _ in range(60):
         _, _, _, trunc, info = env.step(hog)
         if trunc:
@@ -156,7 +177,7 @@ def test_profit_identity_holds(env):
 def test_salvage_credited_only_on_final_day(env):
     """Leftover stock is recovered once, at the end -- never mid-episode."""
     env.reset(seed=41)
-    a = np.array([[3, 1]] * env.n_products).ravel()
+    a = env.encode_action(np.full(env.n_products, 3), np.full(env.n_products, 1))
     salvages = []
     while True:
         _, _, term, trunc, info = env.step(a)
@@ -178,7 +199,7 @@ def test_doing_nothing_eventually_causes_stockouts(env):
     """Sanity: never ordering must drain the shelf. If this fails, stock is
     being created from nowhere."""
     env.reset(seed=5)
-    nothing = np.zeros(env.n_products * 2, dtype=int)
+    nothing = np.zeros(env.n_products, dtype=int)
     shortfall = 0.0
     for _ in range(env.episode_length):
         _, _, _, trunc, info = env.step(nothing)
@@ -191,7 +212,7 @@ def test_doing_nothing_eventually_causes_stockouts(env):
 
 def test_episode_truncates_at_configured_length(env):
     env.reset(seed=6)
-    nothing = np.zeros(env.n_products * 2, dtype=int)
+    nothing = np.zeros(env.n_products, dtype=int)
     steps = 0
     while True:
         _, _, term, trunc, _ = env.step(nothing)
@@ -204,7 +225,7 @@ def test_episode_truncates_at_configured_length(env):
 
 def test_warmup_days_pay_no_reward(env):
     env.reset(seed=7)
-    nothing = np.zeros(env.n_products * 2, dtype=int)
+    nothing = np.zeros(env.n_products, dtype=int)
     for d in range(1, env.warmup_days + 1):
         _, r, _, _, _ = env.step(nothing)
         assert r == 0.0, f"day {d} is warm-up and must not pay reward"
@@ -212,7 +233,7 @@ def test_warmup_days_pay_no_reward(env):
 
 def test_saturday_never_traded(env):
     env.reset(seed=8)
-    nothing = np.zeros(env.n_products * 2, dtype=int)
+    nothing = np.zeros(env.n_products, dtype=int)
     closed = set(env.stats["closed_weekdays"])
     for _ in range(100):
         env.step(nothing)
@@ -230,15 +251,13 @@ def test_deliveries_arrive_on_the_promised_day():
     e.reset(seed=11)
     e.stock[:] = 0.0
 
-    order = np.zeros(e.n_products * 2, dtype=int)
-    order[0] = e.n_buckets - 1  # big order of product 0
-    order[1] = 1  # from the fast supplier
+    order = order_one(e, product=0, bucket=e.n_buckets - 1, supplier=1)
     _, _, _, _, info = e.step(order)
 
     in_transit_before = info["in_transit"][0]
     assert in_transit_before > 0, "order did not enter the pipeline"
 
-    nothing = np.zeros(e.n_products * 2, dtype=int)
+    nothing = np.zeros(e.n_products, dtype=int)
     delivered = 0.0
     for _ in range(e.suppliers.max_lead + 1):
         _, _, _, _, info = e.step(nothing)
@@ -266,9 +285,7 @@ def test_outage_rejects_orders(env):
     env.suppliers.force_outage(1, 5)
     assert not env.suppliers.is_available()[1]
 
-    order = np.zeros(env.n_products * 2, dtype=int)
-    order[0] = env.n_buckets - 1
-    order[1] = 1  # the supplier that is down
+    order = order_one(env, product=0, bucket=env.n_buckets - 1, supplier=1)
     _, _, _, _, info = env.step(order)
     assert info["order_rejected"][0], "order to an offline supplier must be rejected"
     assert info["in_transit"][0] == 0
@@ -279,9 +296,7 @@ def test_fill_rate_can_shortfall(env):
     receive materially less than we asked for."""
     env.reset(seed=14)
     asked = received = 0.0
-    order = np.zeros(env.n_products * 2, dtype=int)
-    order[0] = 3
-    order[1] = 2  # the unreliable supplier
+    order = order_one(env, product=0, bucket=3, supplier=2)
     for _ in range(60):
         _, _, _, _, info = env.step(order)
         if info["order_quantities"][0] > 0 and not info["order_rejected"][0]:
@@ -307,7 +322,7 @@ def test_demand_spike_raises_demand():
     def total_demand(scenarios):
         e = SupplyChainEnv(seed=21, scenarios=scenarios)
         e.reset(seed=21)
-        nothing = np.zeros(e.n_products * 2, dtype=int)
+        nothing = np.zeros(e.n_products, dtype=int)
         total = 0.0
         for _ in range(60):
             _, _, _, _, info = e.step(nothing)
@@ -337,7 +352,7 @@ def test_supplier_outage_scenario_takes_supplier_down():
         seed=22, scenarios=[sc.supplier_outage(supplier=1, start_day=5, duration=10)]
     )
     e.reset(seed=22)
-    nothing = np.zeros(e.n_products * 2, dtype=int)
+    nothing = np.zeros(e.n_products, dtype=int)
     seen_down = False
     for d in range(1, 13):
         _, _, _, _, info = e.step(nothing)
@@ -354,7 +369,7 @@ def test_supplier_delay_extends_lead_time():
     )
     e.reset(seed=23)
     baseline = (e.suppliers.lt_min[1] + e.suppliers.lt_mode[1] + e.suppliers.lt_max[1]) / 3
-    nothing = np.zeros(e.n_products * 2, dtype=int)
+    nothing = np.zeros(e.n_products, dtype=int)
     e.step(nothing)
     assert e.suppliers.expected_lead_time()[1] > baseline + 7
 
@@ -374,7 +389,7 @@ def test_ordering_more_raises_holding_cost():
     def holding(bucket):
         e = SupplyChainEnv(seed=31)
         e.reset(seed=31)
-        a = np.array([[bucket, 1]] * e.n_products).ravel()
+        a = e.encode_action(np.full(e.n_products, bucket), np.full(e.n_products, 1))
         total = 0.0
         for _ in range(60):
             _, _, _, _, info = e.step(a)

@@ -60,7 +60,9 @@ class Policy:
         supplier = self.choose_supplier(env)
         want = self.desired_quantity(env)
         buckets = self.quantise(env, want)
-        return np.stack([buckets, supplier], axis=1).ravel()
+        # Joint (bucket, supplier) encoding -- identical to what the agent
+        # emits, so neither side gets a finer action space than the other.
+        return env.encode_action(buckets, supplier)
 
     @staticmethod
     def quantise(env, want_units: np.ndarray) -> np.ndarray:
@@ -150,7 +152,7 @@ class ConstantPolicy(Policy):
     def act(self, env, rng=None) -> np.ndarray:
         supplier = self.choose_supplier(env)
         buckets = np.full(env.n_products, self.bucket, dtype=int)
-        return np.stack([buckets, supplier], axis=1).ravel()
+        return env.encode_action(buckets, supplier)
 
 
 class SSPolicy(Policy):

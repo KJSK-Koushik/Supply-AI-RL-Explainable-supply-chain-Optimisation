@@ -21,17 +21,17 @@ def policy_random(env, rng):
 
 
 def policy_never_order(env, rng):
-    return np.zeros(env.n_products * 2, dtype=int)
+    return np.zeros(env.n_products, dtype=int)
 
 
 def policy_always_max(env, rng):
-    return np.array([[env.n_buckets - 1, 1]] * env.n_products).ravel()
+    return env.encode_action(np.full(env.n_products, env.n_buckets - 1), np.full(env.n_products, 1))
 
 
 def policy_constant_1x(env, rng):
     """Order one day of mean demand, every day, from the fast supplier.
     Crude, but it roughly matches the long-run consumption rate."""
-    return np.array([[2, 1]] * env.n_products).ravel()
+    return env.encode_action(np.full(env.n_products, 2), np.full(env.n_products, 1))
 
 
 def policy_order_up_to(env, rng):

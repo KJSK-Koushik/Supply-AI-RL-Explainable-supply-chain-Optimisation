@@ -1,0 +1,48 @@
+# Phase 4 - PPO training configuration.
+#
+# Throughput note: measured on the dev laptop (i7-1360P, 12 cores).
+#   original 20-dim action space, default torch threads : 49 steps/s
+#   + torch distribution validation disabled            : 81
+#   + joint 10-dim action space                         : 137
+#   + 8 parallel envs                                   : 402
+#   + vectorised supplier ordering                      : ~700 (expected)
+# Anything that silently reintroduces per-dimension actions or re-enables
+# validation costs roughly a 3x slowdown across every run.
+
+run:
+  total_timesteps: 1_000_000
+  n_envs: 8                  # subprocess envs; 8 measured best on 12 cores
+  seed: 0
+  device: cpu                # a ~20k-parameter MLP is slower on GPU than CPU
+  disable_torch_validation: true
+  torch_threads: 0           # 0 = leave torch's default; >0 to pin
+
+ppo:
+  policy: MlpPolicy
+  learning_rate: 3.0e-4
+  n_steps: 512               # per env, so 8 x 512 = 4096 per update
+  batch_size: 512
+  n_epochs: 10
+  gamma: 0.995               # long horizon: a 6-day lead time must still matter
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01             # exploration; too low collapses to one action
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  net_arch: [128, 128]
+
+eval:
+  # Evaluated during training on seeds disjoint from both the final held-out
+  # set and the baseline tuning set, so nothing leaks into model selection.
+  seeds: [900, 901, 902, 903, 904, 905]
+  every_steps: 25_000
+  n_eval_episodes: 6
+
+checkpoint:
+  every_steps: 50_000
+  keep_best: true
+
+paths:
+  models: results/models
+  logs: results/logs
+  tensorboard: results/logs/tb
