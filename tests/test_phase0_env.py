@@ -20,7 +20,11 @@ def test_rl_stack_imports():
     from sb3_contrib import MaskablePPO  # noqa: F401
 
 
+@pytest.mark.local_env
 def test_dashboard_imports():
+    """Phase 8 packages. Only the laptop serves the dashboard, so remote
+    training machines deselect this rather than install ~80 MB they never use.
+    Kept strict where it does run: a half-installed venv should fail loudly."""
     import streamlit, plotly, matplotlib  # noqa: F401
 
 
@@ -37,12 +41,23 @@ def test_configs_parse(name):
 def test_raw_data_present():
     """Local environment check. Raw data is gitignored (50 MB, and the source
     terms are not ours to redistribute), so on CI this skips rather than fails.
-    Run `python scripts/fetch_data.py` to populate it."""
+    Run `python scripts/fetch_data.py` to populate it.
+
+    The two files skip independently. UCI downloads from a public URL and is
+    what the simulator is calibrated from, so its absence stops everything
+    downstream. The Kaggle CSV needs account credentials fetch_data.py cannot
+    supply unattended, and it feeds only the dataset-screening section of the
+    report -- a decision already made and written up. Absent credentials, its
+    absence is the expected state, not a fault.
+    """
     cfg = load_config("data")
     uci = resolve(cfg["paths"]["uci_raw"])
     if not uci.exists():
-        pytest.skip("raw data not present (expected on CI)")
-    assert resolve(cfg["paths"]["kaggle_raw"]).exists(), "retail_store_inventory.csv missing"
+        pytest.skip("UCI raw data not present -- run scripts/fetch_data.py")
+    kaggle = resolve(cfg["paths"]["kaggle_raw"])
+    if not kaggle.exists():
+        pytest.skip(f"{kaggle.name} not present (needs Kaggle credentials)")
+    assert uci.stat().st_size > 1_000_000, "UCI file present but implausibly small"
 
 
 def test_supplier_table_is_coherent():
