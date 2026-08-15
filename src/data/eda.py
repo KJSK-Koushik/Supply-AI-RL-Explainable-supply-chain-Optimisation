@@ -18,8 +18,20 @@ DOW_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 def fig_dataset_comparison(cfg: dict, outdir):
-    """Side-by-side: why Kaggle was rejected and UCI accepted."""
-    kag = pd.read_csv(resolve(cfg["paths"]["kaggle_raw"]), parse_dates=["Date"])
+    """Side-by-side: why Kaggle was rejected and UCI accepted.
+
+    Skipped when the Kaggle CSV is absent. That file needs account credentials
+    to download, so it is missing on CI and on Kaggle's own servers, and this
+    figure is only the evidence for a screening decision already made and
+    committed -- not something the simulator depends on. Crashing the whole
+    pipeline over a missing report chart would be badly disproportionate.
+    """
+    kaggle_path = resolve(cfg["paths"]["kaggle_raw"])
+    if not kaggle_path.exists():
+        print(f"      (skipping dataset-comparison figure: {kaggle_path.name} not present)")
+        return
+
+    kag = pd.read_csv(kaggle_path, parse_dates=["Date"])
     kag["dow"] = kag["Date"].dt.dayofweek
     kag["month"] = kag["Date"].dt.month
     uci = loader.read_panel(cfg)
