@@ -1128,6 +1128,304 @@ write(
     ),
 )
 
+# ============================ slide 4 redrawn: the sourcing trade-off, visually
+# The three suppliers ARE the problem -- every ordering decision is a choice
+# among these columns. As bullets that has to be read and held in the head; as
+# three cards it can be seen.
+
+s = read(4)
+s = fill_content(
+    s,
+    body(
+        [
+            (
+                "Each simulated day, for every one of 10 products, decide two things "
+                "together: how much to order, and from which of three suppliers.",
+                0,
+                1500,
+                True,
+            ),
+        ]
+    ),
+    xfrm=(X, Y, CX, 560000),
+)
+
+SUP_N = 3
+SUP_GAP = 200000
+SUP_W = (CX - (SUP_N - 1) * SUP_GAP) // SUP_N
+SUP_Y = 2220000
+SUP_H = 1980000
+
+CHEAP = ("E8F3EC", "8FBFA3", "1A6B3C", "3D6B50")
+FAST = ("E6EEF8", "9BB4D6", "1F4E79", "3C5F80")
+FLAKY = ("FDECEA", "E0A29B", "9B2C20", "7A4038")
+
+suppliers = [
+    (
+        CHEAP,
+        "EconoSource",
+        "cheap but slow",
+        [
+            "unit cost:  baseline",
+            "lead time:  5-8 days",
+            "fill rate:  90%",
+            "min order:  100 units",
+            "order fee:  20",
+            "outage risk:  low",
+        ],
+    ),
+    (
+        FAST,
+        "RapidTrade",
+        "fast but expensive",
+        [
+            "unit cost:  +35%",
+            "lead time:  1-3 days",
+            "fill rate:  98%",
+            "min order:  20 units",
+            "order fee:  45",
+            "outage risk:  very low",
+        ],
+    ),
+    (
+        FLAKY,
+        "MidWay Supply",
+        "middling but unreliable",
+        [
+            "unit cost:  +15%",
+            "lead time:  3-5 days",
+            "fill rate:  80%",
+            "min order:  50 units",
+            "order fee:  30",
+            "outage risk:  highest",
+        ],
+    ),
+]
+
+vis = []
+for i, (pal, name, arch, rows) in enumerate(suppliers):
+    fill, border, head, sub = pal
+    sx = X + i * (SUP_W + SUP_GAP)
+    card = box(
+        400 + i * 2,
+        sx,
+        SUP_Y,
+        SUP_W,
+        SUP_H,
+        [(name, 13, True, head), (arch, 9, False, sub)],
+        fill,
+        border,
+    )
+    vis.append(card.replace('<a:bodyPr anchor="ctr"', '<a:bodyPr anchor="t"', 1))
+    panel = box(
+        401 + i * 2,
+        sx + 120000,
+        SUP_Y + 720000,
+        SUP_W - 240000,
+        SUP_H - 840000,
+        [(r, 9, False, sub) for r in rows],
+        "FFFFFF",
+        border,
+    )
+    vis.append(panel.replace('algn="ctr"', 'algn="l"'))
+
+note = (
+    para("Why this is hard", 0, 1300, True, DARKGREEN, False)
+    + para(
+        "No column dominates. The cheap supplier ties up a week of demand in "
+        "transit; the fast one erodes margin; the reliable-looking middle "
+        "option ships only 80% of what is ordered and goes offline most "
+        "often. The right answer changes with stock cover, season and "
+        "volatility -- which is exactly what a fixed reorder rule cannot "
+        "express.",
+        0,
+        1200,
+        False,
+        INK,
+        False,
+    )
+    + para(
+        "Scale: 21 options per product across 10 products is about 1.7 x 10^13 "
+        "combinations per day, and the choices are coupled -- today's order "
+        "is next week's stock, and all 10 products share one 20,000-unit "
+        "warehouse.",
+        0,
+        1200,
+        False,
+        INK,
+        False,
+    )
+)
+vis.append(box(420, X, 4300000, CX, 1600000, [], "FAFAFC", "E0E0E8"))
+vis.append(textbox(421, X + 160000, 4400000, CX - 320000, 1420000, note))
+
+write(4, add_shapes(s, "".join(vis)))
+
+# ================== slide 8 redrawn: the MDP loop and the formal specification
+# An RL methodology slide that never draws the agent-environment loop is
+# missing its own subject. The loop is the reason the problem needs RL at all.
+
+s = read(8)
+s = fill_content(
+    s,
+    body(
+        [
+            (
+                "The problem is posed as a Markov decision process and solved with "
+                "PPO. Concretely, that means:",
+                0,
+                1400,
+                False,
+            ),
+        ]
+    ),
+    # One line, deliberately: at two it runs into the panels below it.
+    xfrm=(X, Y, CX, 420000),
+)
+
+LOOP_X0 = X
+LOOP_W = 5100000
+PANEL_X = X + LOOP_W + 315600
+PANEL_W = CX - LOOP_W - 315600
+TOP = 2060000
+BLOCK_H = 2440000
+
+mdp = []
+mdp.append(box(500, LOOP_X0, TOP, LOOP_W, BLOCK_H, [], "FBFCFB", "E0E0E8"))
+mdp.append(
+    textbox(
+        501,
+        LOOP_X0 + 160000,
+        TOP + 90000,
+        LOOP_W - 320000,
+        300000,
+        para("The decision loop, repeated for 180 days", 0, 1100, True, DARKGREEN, False),
+    )
+)
+
+AG_X, AG_W = LOOP_X0 + 760000, 2700000
+mdp.append(
+    box(
+        510,
+        AG_X,
+        2500000,
+        AG_W,
+        680000,
+        [("PPO AGENT", 12, True, "5B3E8E"), ("MaskablePPO, MLP 256x256", 8, False, "5A4A70")],
+        "F0E9F7",
+        "B9A2D4",
+    )
+)
+mdp.append(
+    box(
+        511,
+        AG_X,
+        3730000,
+        AG_W,
+        680000,
+        [
+            ("SIMULATOR", 12, True, "1F4E79"),
+            ("demand, suppliers, warehouse, costs", 8, False, "3C5F80"),
+        ],
+        "E6EEF8",
+        "9BB4D6",
+    )
+)
+
+mdp.append(arrow(520, AG_X + 300000, 3230000, 170000, 480000))
+mdp.append(arrow(521, AG_X + AG_W - 470000, 3230000, 170000, 480000, down=False))
+# The upward arrow is drawn as a rotated down-arrow: prstGeom has an upArrow,
+# but reusing one helper keeps a single definition of arrow styling.
+mdp[-1] = mdp[-1].replace(
+    '<a:prstGeom prst="rightArrow">',
+    '<a:prstGeom prst="upArrow">',
+)
+
+mdp.append(
+    textbox(
+        530,
+        AG_X + 520000,
+        3300000,
+        800000,
+        380000,
+        para("action", 0, 950, True, "5B3E8E", False),
+    )
+)
+mdp.append(
+    textbox(
+        531,
+        AG_X + 1400000,
+        3300000,
+        780000,
+        380000,
+        para("state + reward", 0, 950, True, "1F4E79", False),
+    )
+)
+
+spec = (
+    para("Formal specification", 0, 1100, True, DARKGREEN, False)
+    + para(
+        "State  -  88 values. Per product: stock, in transit, days of cover, "
+        "7-day mean, volatility, trend, backlog. Plus weekday, season, and "
+        "each supplier's availability and recent fill rate.",
+        0,
+        1000,
+        False,
+        INK,
+        False,
+    )
+    + para(
+        "Action  -  per product, one joint choice from 7 quantity buckets x "
+        "3 suppliers = 21 options. Joint rather than separate: how much to "
+        "order and who to order it from are not independent.",
+        0,
+        1000,
+        False,
+        INK,
+        False,
+    )
+    + para(
+        "Reward  -  that day's profit: revenue less purchase, holding, "
+        "ordering, lost-sale and overflow costs. Episode: 180 days.",
+        0,
+        1000,
+        False,
+        INK,
+        False,
+    )
+    + para(
+        "Action masking  -  suppliers in outage and orders exceeding free "
+        "capacity are blocked before the agent chooses. Worth about 3x on "
+        "its own.",
+        0,
+        1000,
+        True,
+        "5B3E8E",
+        False,
+    )
+)
+mdp.append(box(540, PANEL_X, TOP, PANEL_W, BLOCK_H, [], "FBFCFB", "E0E0E8"))
+mdp.append(textbox(541, PANEL_X + 160000, TOP + 90000, PANEL_W - 320000, BLOCK_H - 180000, spec))
+
+fair = para("Why the comparison is fair", 0, 1200, True, DARKGREEN, False) + para(
+    "The four classical policies are grid-search tuned rather than left "
+    "at textbook defaults, plug into the same environment, face the same "
+    "customers on the same seeds, and choose from the same 21 options. "
+    "All policies are then scored on 30 held-out seeds, disjoint from "
+    "every seed used for tuning or checkpoint selection, and compared "
+    "with a paired test.",
+    0,
+    1150,
+    False,
+    INK,
+    False,
+)
+mdp.append(box(550, X, 4560000, CX, 1150000, [], "F2F7F3", "C8D8CC"))
+mdp.append(textbox(551, X + 160000, 4650000, CX - 320000, 970000, fair))
+
+write(8, add_shapes(s, "".join(mdp)))
+
+
 # ================================================ slide 16: system architecture
 # Laid out in the style of a staged pipeline diagram: numbered cards left to
 # right, a detail panel inside each, a decision branch off the agent, the loop
