@@ -19,9 +19,7 @@ import matplotlib.pyplot as plt
 
 from src.config import resolve
 
-plt.rcParams.update(
-    {"figure.dpi": 130, "axes.grid": True, "grid.alpha": 0.3, "font.size": 9}
-)
+plt.rcParams.update({"figure.dpi": 130, "axes.grid": True, "grid.alpha": 0.3, "font.size": 9})
 
 CLASSICAL = "#2c7a4b"
 AGENT = "#c0392b"
@@ -65,24 +63,34 @@ def fig_policy_comparison(outdir) -> str | None:
     labels = [pretty.get(n, n) for n in names]
 
     fig, ax = plt.subplots(figsize=(8.2, 4.2))
-    bars = ax.barh(labels, profits, xerr=errs, color=colors, capsize=3,
-                   error_kw={"ecolor": MUTED, "lw": 1})
+    bars = ax.barh(
+        labels, profits, xerr=errs, color=colors, capsize=3, error_kw={"ecolor": MUTED, "lw": 1}
+    )
     ax.set_xlabel("total profit over a 180-day episode (GBP, mean of 30 held-out seeds)")
     ax.axvline(0, color="k", lw=0.8)
 
     for bar, p in zip(bars, profits, strict=True):
-        ax.text(p + (900 if p >= 0 else -900), bar.get_y() + bar.get_height() / 2,
-                f"{p:,.0f}", va="center",
-                ha="left" if p >= 0 else "right", fontsize=8, fontweight="bold")
+        ax.text(
+            p + (900 if p >= 0 else -900),
+            bar.get_y() + bar.get_height() / 2,
+            f"{p:,.0f}",
+            va="center",
+            ha="left" if p >= 0 else "right",
+            fontsize=8,
+            fontweight="bold",
+        )
 
     handles = [
         plt.Rectangle((0, 0), 1, 1, color=CLASSICAL),
         plt.Rectangle((0, 0), 1, 1, color=AGENT),
     ]
     ax.legend(handles, ["classical policy (tuned)", "RL agent"], loc="lower right")
-    ax.set_title("Tuned classical policies still lead the RL agent\n"
-                 "(error bars: standard deviation across seeds)",
-                 fontweight="bold", fontsize=10)
+    ax.set_title(
+        "Tuned classical policies still lead the RL agent\n"
+        "(error bars: standard deviation across seeds)",
+        fontweight="bold",
+        fontsize=10,
+    )
     ax.margins(x=0.16)
     fig.tight_layout()
     out = outdir / "05_policy_comparison.png"
@@ -126,15 +134,26 @@ def fig_training_curves(outdir) -> str | None:
         best = b["best_baseline"]
         val = b["policies"][best]["eval"]["total_profit"]
         ax.axhline(val, color=CLASSICAL, ls="--", lw=1.4)
-        ax.text(ax.get_xlim()[1], val, f"  best classical policy ({best}): {val:,.0f}",
-                va="bottom", ha="right", fontsize=8, color=CLASSICAL, fontweight="bold")
+        ax.text(
+            ax.get_xlim()[1],
+            val,
+            f"  best classical policy ({best}): {val:,.0f}",
+            va="bottom",
+            ha="right",
+            fontsize=8,
+            color=CLASSICAL,
+            fontweight="bold",
+        )
 
     ax.set_xlabel("training steps")
     ax.set_ylabel("profit per episode (GBP)")
     ax.legend(loc="lower right")
-    ax.set_title("Action masking is worth roughly 3x, but neither run reaches the baseline\n"
-                 "(scored on the training-eval seeds used to pick checkpoints)",
-                 fontweight="bold", fontsize=10)
+    ax.set_title(
+        "Action masking is worth roughly 3x, but neither run reaches the baseline\n"
+        "(scored on the training-eval seeds used to pick checkpoints)",
+        fontweight="bold",
+        fontsize=10,
+    )
     fig.tight_layout()
     out = outdir / "06_training_curves.png"
     fig.savefig(out, bbox_inches="tight")
