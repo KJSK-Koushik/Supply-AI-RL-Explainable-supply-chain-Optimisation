@@ -1,0 +1,256 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 830" width="1440" height="830" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif">
+<defs>
+  <marker id="nav" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2A4A6B"/></marker>
+  <marker id="navs" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4A6C8C"/></marker>
+  <marker id="grn" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3A8A5F"/></marker>
+  <marker id="gry" viewBox="0 0 10 10" refX="9.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8FA0B2"/></marker>
+</defs>
+
+<rect x="0" y="0" width="1440" height="830" fill="#FFFFFF"/>
+
+<text x="720" y="52" text-anchor="middle" font-size="42" font-weight="700" fill="#16324F" letter-spacing="-0.5">System Architecture</text>
+<text x="720" y="82" text-anchor="middle" font-size="17" font-style="italic" fill="#54687E">RL-based Multi-Product Inventory Optimization with Supplier Selection</text>
+
+<!-- ============ ROW 1 ============ -->
+
+<!-- 1 REAL SALES DATA -->
+<rect x="40" y="108" width="248" height="228" rx="9" fill="#EAF2FA" stroke="#2E6DA4" stroke-width="1.6"/>
+<text x="60" y="133" font-size="14.5" font-weight="700" fill="#1F5C93">1. REAL SALES DATA</text>
+<g transform="translate(164,178)" fill="#2E6DA4">
+  <ellipse cx="0" cy="-20" rx="26" ry="8.5"/><rect x="-26" y="-20" width="52" height="34" /><ellipse cx="0" cy="14" rx="26" ry="8.5"/>
+  <ellipse cx="0" cy="-6" rx="26" ry="8.5" fill="#EAF2FA" opacity="0.55"/><ellipse cx="0" cy="4" rx="26" ry="8.5" fill="#EAF2FA" opacity="0.55"/>
+</g>
+<text x="164" y="222" text-anchor="middle" font-size="12.5" font-weight="600" fill="#23384F">UCI Online Retail II</text>
+<text x="164" y="241" text-anchor="middle" font-size="11.5" fill="#54687E">1,067,371 transactions</text>
+<text x="164" y="258" text-anchor="middle" font-size="11.5" fill="#54687E">Dec 2009 &#8211; Dec 2011</text>
+<text x="164" y="275" text-anchor="middle" font-size="11.5" fill="#54687E">4,289 products screened</text>
+<rect x="58" y="288" width="212" height="34" rx="5" fill="#FFFFFF" stroke="#B7CFE4" stroke-width="1.2"/>
+<text x="164" y="303" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1F5C93">Supplier attributes:</text>
+<text x="164" y="316" text-anchor="middle" font-size="10.5" fill="#54687E">synthetic, declared as such</text>
+
+<!-- 2 DATA PIPELINE -->
+<rect x="318" y="108" width="248" height="228" rx="9" fill="#EAF6EF" stroke="#3A8A5F" stroke-width="1.6"/>
+<text x="338" y="133" font-size="14.5" font-weight="700" fill="#2C6E4A">2. DATA PIPELINE</text>
+<g font-size="11.5" fill="#23384F">
+  <g fill="#3A8A5F"><circle cx="345" cy="156" r="6.5"/><circle cx="345" cy="181" r="6.5"/><circle cx="345" cy="206" r="6.5"/><circle cx="345" cy="231" r="6.5"/><circle cx="345" cy="256" r="6.5"/><circle cx="345" cy="281" r="6.5"/></g>
+  <g stroke="#FFFFFF" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="342,156 344.3,158.6 348.3,153.4"/><polyline points="342,181 344.3,183.6 348.3,178.4"/><polyline points="342,206 344.3,208.6 348.3,203.4"/>
+    <polyline points="342,231 344.3,233.6 348.3,228.4"/><polyline points="342,256 344.3,258.6 348.3,253.4"/><polyline points="342,281 344.3,283.6 348.3,278.4"/>
+  </g>
+  <text x="360" y="160">Clean cancels, returns, negatives</text>
+  <text x="360" y="185">Reshape to a daily panel</text>
+  <text x="360" y="210">Mark Saturdays closed (not zero)</text>
+  <text x="360" y="235">Select 10 products of 4,289</text>
+  <text x="360" y="260">Fit demand + seasonality stats</text>
+  <text x="360" y="285">Split in time at 1 Jun 2011</text>
+</g>
+<rect x="336" y="296" width="212" height="26" rx="5" fill="#FFFFFF" stroke="#A9D2BC" stroke-width="1.2"/>
+<text x="442" y="313" text-anchor="middle" font-size="11" fill="#2C6E4A">Output: <tspan font-weight="700">demand_stats.json</tspan></text>
+
+<!-- 3 SIMULATOR -->
+<rect x="596" y="108" width="248" height="228" rx="9" fill="#E6F4F6" stroke="#17808F" stroke-width="1.6"/>
+<text x="616" y="133" font-size="14.5" font-weight="700" fill="#106470">3. SIMULATOR (ENVIRONMENT)</text>
+<g fill="#17808F">
+  <rect x="648" y="163" width="7" height="16" rx="1.5"/><rect x="658" y="155" width="7" height="24" rx="1.5"/><rect x="668" y="148" width="7" height="31" rx="1.5"/>
+  <path d="M716 179 L716 160 L742 160 L742 166 L752 166 L757 173 L757 179 Z"/><circle cx="724" cy="182" r="3.6"/><circle cx="750" cy="182" r="3.6"/>
+  <path d="M790 179 L790 163 L804 152 L818 163 L818 179 Z"/><rect x="798" y="169" width="12" height="10" fill="#E6F4F6"/>
+</g>
+<text x="661" y="196" text-anchor="middle" font-size="10.5" fill="#54687E">Demand model</text>
+<text x="736" y="196" text-anchor="middle" font-size="10.5" fill="#54687E">3 suppliers</text>
+<text x="804" y="196" text-anchor="middle" font-size="10.5" fill="#54687E">20,000-unit store</text>
+<rect x="614" y="208" width="212" height="52" rx="5" fill="#FFFFFF" stroke="#A5D4DB" stroke-width="1.2"/>
+<text x="720" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#106470">Also modelled:</text>
+<text x="720" y="240" text-anchor="middle" font-size="10.5" fill="#54687E">lead times, partial deliveries,</text>
+<text x="720" y="253" text-anchor="middle" font-size="10.5" fill="#54687E">supplier outages, backlog</text>
+<rect x="614" y="268" width="212" height="52" rx="5" fill="#FFFFFF" stroke="#A5D4DB" stroke-width="1.2"/>
+<text x="720" y="285" text-anchor="middle" font-size="11" font-weight="600" fill="#106470">Costs:</text>
+<text x="720" y="300" text-anchor="middle" font-size="10.5" fill="#54687E">purchase, storage, ordering</text>
+<text x="720" y="313" text-anchor="middle" font-size="10.5" fill="#54687E">fees, lost sales, overflow</text>
+
+<!-- 4 AGENTS -->
+<rect x="874" y="108" width="248" height="228" rx="9" fill="#FDF3E3" stroke="#C6821F" stroke-width="1.6"/>
+<text x="894" y="133" font-size="14.5" font-weight="700" fill="#9A6314">4. AGENTS / POLICIES</text>
+<g fill="#C6821F">
+  <circle cx="912" cy="163" r="5"/><circle cx="936" cy="152" r="5"/><circle cx="936" cy="174" r="5"/><circle cx="960" cy="163" r="5"/>
+  <g stroke="#C6821F" stroke-width="1.6"><line x1="912" y1="163" x2="936" y2="152"/><line x1="912" y1="163" x2="936" y2="174"/><line x1="936" y1="152" x2="960" y2="163"/><line x1="936" y1="174" x2="960" y2="163"/></g>
+</g>
+<text x="980" y="158" font-size="12.5" font-weight="700" fill="#23384F">RL Agent</text>
+<text x="980" y="175" font-size="11.5" fill="#54687E">MaskablePPO</text>
+<rect x="892" y="188" width="212" height="42" rx="5" fill="#FFFFFF" stroke="#E2BE7E" stroke-width="1.4"/>
+<text x="998" y="205" text-anchor="middle" font-size="11" font-weight="700" fill="#9A6314">ACTION MASKING</text>
+<text x="998" y="221" text-anchor="middle" font-size="10.5" fill="#54687E">illegal actions removed, not punished</text>
+<text x="894" y="252" font-size="12" font-weight="700" fill="#23384F">Classical policies, all tuned</text>
+<g font-size="11.5" fill="#54687E">
+  <text x="900" y="271">&#8226; (s,S)</text><text x="1010" y="271">&#8226; newsvendor</text>
+  <text x="900" y="290">&#8226; EOQ + ROP</text><text x="1010" y="290">&#8226; forecast + SS</text>
+</g>
+<rect x="892" y="298" width="212" height="24" rx="5" fill="#FFFFFF" stroke="#E2BE7E" stroke-width="1.2"/>
+<text x="998" y="314" text-anchor="middle" font-size="10.5" fill="#9A6314">+ constant-order sanity floor</text>
+
+<!-- 5 EVALUATION -->
+<rect x="1152" y="108" width="248" height="228" rx="9" fill="#F1EDF9" stroke="#7059A6" stroke-width="1.6"/>
+<text x="1172" y="133" font-size="14.5" font-weight="700" fill="#55408A">5. EVALUATION</text>
+<g fill="#7059A6">
+  <rect x="1248" y="176" width="12" height="18" rx="2"/><rect x="1266" y="164" width="12" height="30" rx="2"/><rect x="1284" y="150" width="12" height="44" rx="2"/>
+  <path d="M1244 158 L1268 158 L1268 152 L1284 162 L1268 172 L1268 166 L1244 166 Z" opacity="0.75"/>
+</g>
+<rect x="1170" y="206" width="212" height="46" rx="5" fill="#FFFFFF" stroke="#C0B0DE" stroke-width="1.4"/>
+<text x="1276" y="223" text-anchor="middle" font-size="11.5" font-weight="700" fill="#55408A">30 held-out seeds (500&#8211;529)</text>
+<text x="1276" y="240" text-anchor="middle" font-size="10.5" fill="#54687E">unseen in training and tuning</text>
+<g font-size="11.5" fill="#54687E">
+  <text x="1178" y="271">&#8226; Identical demand for every policy</text>
+  <text x="1178" y="290">&#8226; Same action granularity</text>
+  <text x="1178" y="309">&#8226; Paired t-test on the difference</text>
+  <text x="1178" y="328">&#8226; Profit, fill rate, cost breakdown</text>
+</g>
+
+<!-- row 1 arrows -->
+<g stroke="#2A4A6B" stroke-width="2.2" fill="none">
+  <line x1="290" y1="222" x2="313" y2="222" marker-end="url(#nav)"/>
+  <line x1="568" y1="222" x2="591" y2="222" marker-end="url(#nav)"/>
+  <line x1="846" y1="222" x2="869" y2="222" marker-end="url(#nav)"/>
+  <line x1="1124" y1="222" x2="1147" y2="222" marker-end="url(#nav)"/>
+</g>
+
+<!-- ============ ROW 2 : LOOP PANEL ============ -->
+<rect x="40" y="360" width="1360" height="300" rx="10" fill="#FAFBFC" stroke="#C9D2DC" stroke-width="1.6"/>
+<text x="62" y="386" font-size="14" font-weight="700" fill="#16324F" letter-spacing="0.4">HOW IT WORKS &#8212; ONE DAY OF THE LOOP</text>
+
+<!-- STATE -->
+<rect x="62" y="398" width="238" height="244" rx="8" fill="#EAF2FA" stroke="#2E6DA4" stroke-width="1.6"/>
+<text x="80" y="422" font-size="13" font-weight="700" fill="#1F5C93">STATE &#8212; 88 FEATURES</text>
+<text x="80" y="446" font-size="11.5" font-weight="700" fill="#23384F">Per product (&#215;10):</text>
+<g font-size="11" fill="#54687E">
+  <text x="80" y="464">&#8226; Stock on hand</text>
+  <text x="80" y="481">&#8226; Stock in transit</text>
+  <text x="80" y="498">&#8226; Days of cover</text>
+  <text x="80" y="515">&#8226; Recent 7-day demand</text>
+  <text x="80" y="532">&#8226; Demand volatility</text>
+  <text x="80" y="549">&#8226; Trend</text>
+  <text x="80" y="566">&#8226; Unmet backlog</text>
+</g>
+<text x="80" y="590" font-size="11.5" font-weight="700" fill="#23384F">Shared context:</text>
+<g font-size="11" fill="#54687E">
+  <text x="80" y="608">&#8226; Day of week, time of year</text>
+  <text x="80" y="625">&#8226; Supplier uptime, lead time,</text>
+  <text x="92" y="640">recent fill rate</text>
+</g>
+
+<!-- RL AGENT -->
+<rect x="392" y="404" width="240" height="232" rx="8" fill="#FCEDED" stroke="#C25555" stroke-width="1.6"/>
+<text x="512" y="428" text-anchor="middle" font-size="13.5" font-weight="700" fill="#9E3B3B">RL AGENT</text>
+<text x="512" y="446" text-anchor="middle" font-size="11.5" fill="#54687E">MaskablePPO</text>
+<g>
+  <g stroke="#C25555" stroke-width="1" opacity="0.55">
+    <line x1="452" y1="478" x2="492" y2="466"/><line x1="452" y1="478" x2="492" y2="490"/><line x1="452" y1="478" x2="492" y2="514"/>
+    <line x1="452" y1="502" x2="492" y2="466"/><line x1="452" y1="502" x2="492" y2="490"/><line x1="452" y1="502" x2="492" y2="514"/>
+    <line x1="492" y1="466" x2="532" y2="478"/><line x1="492" y1="490" x2="532" y2="478"/><line x1="492" y1="514" x2="532" y2="478"/>
+    <line x1="492" y1="466" x2="532" y2="502"/><line x1="492" y1="490" x2="532" y2="502"/><line x1="492" y1="514" x2="532" y2="502"/>
+    <line x1="532" y1="478" x2="572" y2="490"/><line x1="532" y1="502" x2="572" y2="490"/>
+  </g>
+  <g fill="#C25555">
+    <circle cx="452" cy="478" r="5.5"/><circle cx="452" cy="502" r="5.5"/>
+    <circle cx="492" cy="466" r="5.5"/><circle cx="492" cy="490" r="5.5"/><circle cx="492" cy="514" r="5.5"/>
+    <circle cx="532" cy="478" r="5.5"/><circle cx="532" cy="502" r="5.5"/>
+    <circle cx="572" cy="490" r="5.5"/>
+  </g>
+</g>
+<rect x="410" y="534" width="204" height="40" rx="5" fill="#FFFFFF" stroke="#E0AFAF" stroke-width="1.3"/>
+<text x="512" y="551" text-anchor="middle" font-size="11" font-weight="600" fill="#23384F">2 hidden layers, 128 units</text>
+<text x="512" y="566" text-anchor="middle" font-size="11" fill="#54687E">~20,000 parameters</text>
+<rect x="404" y="578" width="216" height="50" rx="5" fill="#FFFFFF" stroke="#C25555" stroke-width="1.5"/>
+<text x="512" y="594" text-anchor="middle" font-size="11" font-weight="700" fill="#9E3B3B">ACTION MASK</text>
+<text x="512" y="609" text-anchor="middle" font-size="10.3" fill="#54687E">blocks offline suppliers, and orders</text>
+<text x="512" y="622" text-anchor="middle" font-size="10.3" fill="#54687E">bigger than the warehouse can take</text>
+
+<!-- SIMULATOR loop -->
+<rect x="726" y="398" width="330" height="244" rx="8" fill="#EAF6EF" stroke="#3A8A5F" stroke-width="1.6"/>
+<text x="891" y="422" text-anchor="middle" font-size="13.5" font-weight="700" fill="#2C6E4A">SIMULATOR (ENVIRONMENT)</text>
+<rect x="746" y="442" width="126" height="46" rx="5" fill="#FFFFFF" stroke="#A9D2BC" stroke-width="1.3"/>
+<text x="809" y="461" text-anchor="middle" font-size="11.5" font-weight="600" fill="#23384F">Demand</text>
+<text x="809" y="477" text-anchor="middle" font-size="10.3" fill="#54687E">Gamma-Poisson</text>
+<rect x="908" y="442" width="126" height="46" rx="5" fill="#FFFFFF" stroke="#A9D2BC" stroke-width="1.3"/>
+<text x="971" y="461" text-anchor="middle" font-size="11.5" font-weight="600" fill="#23384F">Suppliers (3)</text>
+<text x="971" y="477" text-anchor="middle" font-size="10.3" fill="#54687E">lead time, fill rate</text>
+<rect x="908" y="556" width="126" height="46" rx="5" fill="#FFFFFF" stroke="#A9D2BC" stroke-width="1.3"/>
+<text x="971" y="575" text-anchor="middle" font-size="11.5" font-weight="600" fill="#23384F">Warehouse</text>
+<text x="971" y="591" text-anchor="middle" font-size="10.3" fill="#54687E">20,000 units, shared</text>
+<rect x="746" y="556" width="126" height="46" rx="5" fill="#FFFFFF" stroke="#A9D2BC" stroke-width="1.3"/>
+<text x="809" y="575" text-anchor="middle" font-size="11.5" font-weight="600" fill="#23384F">Sales &amp; backlog</text>
+<text x="809" y="591" text-anchor="middle" font-size="10.3" fill="#54687E">60% waits, 40% lost</text>
+<text x="891" y="517" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2C6E4A">One day step</text>
+<text x="891" y="532" text-anchor="middle" font-size="10.3" fill="#54687E">arrive &#8594; sell &#8594; order &#8594; charge</text>
+<g stroke="#3A8A5F" stroke-width="1.8" fill="none">
+  <line x1="875" y1="465" x2="903" y2="465" marker-end="url(#grn)"/>
+  <line x1="971" y1="492" x2="971" y2="550" marker-end="url(#grn)"/>
+  <line x1="905" y1="579" x2="877" y2="579" marker-end="url(#grn)"/>
+  <line x1="809" y1="550" x2="809" y2="494" marker-end="url(#grn)"/>
+</g>
+<text x="891" y="626" text-anchor="middle" font-size="11" font-weight="600" fill="#2C6E4A">reward = that day&#8217;s profit</text>
+
+<!-- EPISODE -->
+<rect x="1148" y="440" width="230" height="164" rx="8" fill="#F1EDF9" stroke="#7059A6" stroke-width="1.6"/>
+<text x="1263" y="466" text-anchor="middle" font-size="13.5" font-weight="700" fill="#55408A">EPISODE</text>
+<g fill="#7059A6" transform="translate(1263,508)">
+  <rect x="-30" y="-22" width="60" height="52" rx="5"/><rect x="-26" y="-12" width="52" height="38" rx="3" fill="#F1EDF9"/>
+  <rect x="-24" y="-27" width="6" height="12" rx="2"/><rect x="18" y="-27" width="6" height="12" rx="2"/>
+  <g fill="#7059A6"><rect x="-20" y="-6" width="8" height="7" rx="1.5"/><rect x="-6" y="-6" width="8" height="7" rx="1.5"/><rect x="8" y="-6" width="8" height="7" rx="1.5"/><rect x="-20" y="6" width="8" height="7" rx="1.5"/><rect x="-6" y="6" width="8" height="7" rx="1.5"/><rect x="8" y="6" width="8" height="7" rx="1.5"/></g>
+</g>
+<text x="1263" y="562" text-anchor="middle" font-size="12.5" font-weight="700" fill="#23384F">180 days</text>
+<text x="1263" y="582" text-anchor="middle" font-size="11" fill="#54687E">Goal: maximise total profit</text>
+<text x="1263" y="596" text-anchor="middle" font-size="11" fill="#54687E">over the whole episode</text>
+
+<!-- loop arrows -->
+<g stroke="#2A4A6B" stroke-width="2.2" fill="none">
+  <line x1="304" y1="490" x2="386" y2="490" marker-end="url(#nav)"/>
+  <line x1="636" y1="466" x2="720" y2="466" marker-end="url(#nav)"/>
+  <line x1="720" y1="580" x2="638" y2="580" marker-end="url(#nav)"/>
+  <line x1="1060" y1="522" x2="1142" y2="522" marker-end="url(#nav)"/>
+</g>
+<text x="345" y="482" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2A4A6B">State</text>
+<text x="678" y="444" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2A4A6B">Action</text>
+<text x="678" y="459" text-anchor="middle" font-size="10.3" fill="#54687E">per product:</text>
+<text x="678" y="472" text-anchor="middle" font-size="10.3" fill="#54687E">21 options</text>
+<text x="678" y="484" text-anchor="middle" font-size="10.3" fill="#54687E">(7 qty &#215; 3 suppliers)</text>
+<text x="678" y="602" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2A4A6B">Observation</text>
+<text x="678" y="616" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2A4A6B">+ Reward</text>
+
+<!-- ============ ROW 3 : PLANNED ============ -->
+<g stroke="#8FA0B2" stroke-width="1.6" stroke-dasharray="5 4" fill="none">
+  <line x1="200" y1="662" x2="200" y2="700" marker-end="url(#gry)"/>
+  <line x1="546" y1="662" x2="546" y2="700" marker-end="url(#gry)"/>
+  <line x1="892" y1="662" x2="892" y2="700" marker-end="url(#gry)"/>
+  <line x1="1238" y1="662" x2="1238" y2="700" marker-end="url(#gry)"/>
+</g>
+<rect x="596" y="668" width="248" height="20" rx="10" fill="#FFFFFF"/>
+<text x="720" y="683" text-anchor="middle" font-size="12.5" font-weight="700" fill="#5A6B80" letter-spacing="0.6">PLANNED NEXT &#8212; PHASES 6 TO 9</text>
+
+<rect x="40" y="704" width="322" height="106" rx="8" fill="#FDF3E3" stroke="#C6821F" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="60" y="729" font-size="13" font-weight="700" fill="#9A6314">6. LLM EXPLAINER</text>
+<text x="60" y="751" font-size="11.3" fill="#54687E">Receives computed facts and phrases them</text>
+<text x="60" y="768" font-size="11.3" fill="#54687E">in plain business English. Never invents a</text>
+<text x="60" y="785" font-size="11.3" fill="#54687E">number &#8212; every figure is checked back.</text>
+<text x="60" y="802" font-size="11.3" fill="#9A6314">Deterministic template as offline fallback.</text>
+
+<rect x="386" y="704" width="322" height="106" rx="8" fill="#F1EDF9" stroke="#7059A6" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="406" y="729" font-size="13" font-weight="700" fill="#55408A">7. LLM SCENARIO GENERATOR</text>
+<text x="406" y="751" font-size="11.3" fill="#54687E">Emits schema-validated JSON disruptions:</text>
+<text x="406" y="768" font-size="11.3" fill="#54687E">demand spikes, supplier delays, outages,</text>
+<text x="406" y="785" font-size="11.3" fill="#54687E">price shocks. Clamped to safe ranges</text>
+<text x="406" y="802" font-size="11.3" fill="#55408A">before it can touch the simulator.</text>
+
+<rect x="732" y="704" width="322" height="106" rx="8" fill="#EAF2FA" stroke="#2E6DA4" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="752" y="729" font-size="13" font-weight="700" fill="#1F5C93">8. DASHBOARD</text>
+<text x="752" y="751" font-size="11.3" fill="#54687E">Streamlit. Inventory, actions, cost and</text>
+<text x="752" y="768" font-size="11.3" fill="#54687E">reward over time, the explanations, the</text>
+<text x="752" y="785" font-size="11.3" fill="#54687E">injected scenarios, and the RL-vs-baseline</text>
+<text x="752" y="802" font-size="11.3" fill="#1F5C93">comparison side by side.</text>
+
+<rect x="1078" y="704" width="322" height="106" rx="8" fill="#E6F4F6" stroke="#17808F" stroke-width="2.2"/>
+<text x="1098" y="729" font-size="13" font-weight="700" fill="#106470">9. LLM CURRICULUM TRAINING</text>
+<text x="1098" y="751" font-size="11.3" fill="#54687E">Generated crises fed BACK as RL training</text>
+<text x="1098" y="768" font-size="11.3" fill="#54687E">data, then both agents tested on crises</text>
+<text x="1098" y="785" font-size="11.3" fill="#54687E">neither has seen.</text>
+<text x="1098" y="803" font-size="11.5" font-weight="700" fill="#106470">The novelty claim: LLM improves RL.</text>
+
+</svg>

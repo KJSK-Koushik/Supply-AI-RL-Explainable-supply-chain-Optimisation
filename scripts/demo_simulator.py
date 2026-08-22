@@ -10,10 +10,18 @@ built on it would be meaningless.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
 
-from src.env.scenarios import demand_spike, supplier_outage
-from src.env.supply_chain_env import SupplyChainEnv
+# Running this file directly puts scripts/ on sys.path, not the project root,
+# so `import src...` fails. pytest.ini fixes that for tests only, and the
+# docstring above promises `python scripts/demo_simulator.py` works.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src.env.scenarios import demand_spike, supplier_outage  # noqa: E402
+from src.env.supply_chain_env import SupplyChainEnv  # noqa: E402
 
 
 def policy_random(env, rng):
@@ -47,17 +55,17 @@ def policy_order_up_to(env, rng):
     mean = np.maximum(env.demand_gen.mean, 1e-6)
     cover = (env.stock + env.suppliers.in_transit()) / mean
 
-    action = np.zeros((env.n_products, 2), dtype=int)
+    buckets = np.zeros(env.n_products, dtype=int)
     for p in range(env.n_products):
-        if cover[p] >= reorder_at:
-            action[p, 0] = 0
-        else:
+        if cover[p] < reorder_at:
             # Days of cover to make up, expressed in mean-daily-demand units,
             # snapped to the nearest available bucket.
             gap = target_cover - cover[p]
-            action[p, 0] = int(np.argmin(np.abs(env.order_buckets - gap)))
-        action[p, 1] = 0  # EconoSource, the cheap slow one
-    return action.ravel()
+            buckets[p] = int(np.argmin(np.abs(env.order_buckets - gap)))
+    # Supplier 0, EconoSource, the cheap slow one. Encoded through the env
+    # rather than assembled by hand: quantity and supplier are one joint
+    # choice per product now, not two separate values flattened together.
+    return env.encode_action(buckets, np.zeros(env.n_products, dtype=int))
 
 
 def run(policy, seed=0, scenarios=None, episodes=5):

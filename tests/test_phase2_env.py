@@ -403,3 +403,32 @@ def test_stockouts_are_penalised_more_than_lost_margin(env):
     gp = env.cost_model.gross_profit_per_unit()
     assert env.cost_model.stockout_multiplier > 1.0
     assert (gp > 0).all(), "selling price must exceed unit cost"
+
+
+def test_demo_script_policies_still_match_the_action_space(env):
+    """The Phase 2 demo is not covered by anything else, and it rotted.
+
+    When the action space was collapsed from 20 separate values to 10 joint
+    ones in Phase 4, this script kept building the old shape and crashed on
+    import-and-run -- silently, because nothing exercised it. It is the first
+    thing anyone runs to see the simulator work, so it is worth a test.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "demo_simulator", resolve("scripts/demo_simulator.py")
+    )
+    demo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(demo)
+
+    env.reset(seed=0)
+    rng = np.random.default_rng(0)
+    for name in (
+        "policy_random",
+        "policy_never_order",
+        "policy_always_max",
+        "policy_constant_1x",
+        "policy_order_up_to",
+    ):
+        action = getattr(demo, name)(env, rng)
+        assert env.action_space.contains(np.asarray(action, dtype=np.int64)), name
