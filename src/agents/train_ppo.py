@@ -67,6 +67,21 @@ def make_vec_env(
     return DummyVecEnv(fns) if n_envs == 1 else SubprocVecEnv(fns)
 
 
+def latest_checkpoint(out_dir: Path):
+    """Newest checkpoint written by CheckpointCallback, or None.
+
+    The callback names files checkpoint_<steps>_steps.zip. --resume used to
+    look for a bare checkpoint.zip, which never exists, so it silently fell
+    through to training from scratch: an hour of compute discarded with no
+    error and a plausible-looking result at the end. Resuming with nothing to
+    resume from is now a hard failure rather than a quiet restart.
+    """
+    ckpts = list(out_dir.glob("checkpoint_*_steps.zip"))
+    if not ckpts:
+        return None
+    return max(ckpts, key=lambda p: int(p.stem.split("_")[1]))
+
+
 class HeldOutEvalCallback:
     """Score the policy on fixed seeds using the same harness the baselines
     used, so the numbers are directly comparable rather than being SB3's
@@ -187,11 +202,14 @@ def main() -> None:
     net_arch = ppo_cfg.pop("net_arch", [128, 128])
     policy = ppo_cfg.pop("policy", "MlpPolicy")
 
-    ckpt_path = out_dir / "checkpoint.zip"
-    if args.resume and ckpt_path.exists():
-        print(f"resuming from {ckpt_path}", flush=True)
+    ckpt_path = latest_checkpoint(out_dir)
+    if args.resume and ckpt_path is not None:
+        print(f"resuming from {ckpt_path.name}", flush=True)
         model = Algo.load(str(ckpt_path), env=venv, device=run_cfg["device"])
         done_steps = model.num_timesteps
+    elif args.resume:
+        print(f"--resume given but no checkpoint found in {out_dir}", flush=True)
+        raise SystemExit(1)
     else:
         model = Algo(
             policy,
