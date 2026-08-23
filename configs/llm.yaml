@@ -4,11 +4,32 @@
 provider:
   base_url: "https://openrouter.ai/api/v1"
   api_key_env: "OPENROUTER_API_KEY"
-  # Swap models here without touching any code.
-  model: "anthropic/claude-sonnet-4.5"
-  fallback_model: "google/gemini-2.0-flash-001"
-  timeout_seconds: 30
-  max_retries: 3
+  # Free-tier models only, tried in this order. Verified against OpenRouter's
+  # model list on 2026-08-23 -- the obvious short names do not exist, so the
+  # exact ids matter: there is no "google/gemma-4-31b:free", only the "-it"
+  # instruction-tuned variant.
+  #
+  # Ordered by how well they suit this job, not by size. The explainer emits
+  # two or three sentences of grounded business English; a 550B reasoning
+  # model is the wrong tool for that and is listed last.
+  models:
+    - "google/gemma-4-31b-it:free"            # fast, reliable, ample for this
+    - "z-ai/glm-5.2:free"                     # 256k context, flakier upstream
+    - "nvidia/nemotron-3-ultra-550b-a55b:free" # reasoning model, see below
+  timeout_seconds: 60
+  max_retries: 4
+  # Free endpoints return HTTP 429 "temporarily rate-limited upstream"
+  # routinely -- all three did on first contact and two recovered on the very
+  # next call. Retrying with backoff, then moving down the model list, is
+  # required for this to work at all rather than a nicety.
+  retry_backoff_seconds: [1, 3, 8, 20]
+  # Reasoning models spend the token budget thinking before they answer. At
+  # max_tokens 300 nemotron returned finish_reason "length" with an empty
+  # answer and its whole allowance consumed by reasoning, so it gets its own,
+  # larger budget.
+  reasoning_models:
+    - "nvidia/nemotron-3-ultra-550b-a55b:free"
+  reasoning_max_tokens: 1500
 
 explainer:
   temperature: 0.2              # low - we want faithful phrasing, not creativity
