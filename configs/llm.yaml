@@ -44,11 +44,19 @@ scenario_generator:
   max_tokens: 500
   response_format: "json_object"
   # Generated values are clamped to these ranges before reaching the simulator.
+  # Hard bounds applied to whatever the model returns. These are not
+  # suggestions to the model -- the prompt states them too, but the clamp is
+  # what actually holds, because a stress test that sets demand to 500x is not
+  # a stress test, it is a broken episode.
   clamps:
     demand_multiplier: [0.2, 5.0]
     duration_days: [1, 30]
     lead_time_extra_days: [0, 20]
     outage_days: [1, 21]
+    cost_multiplier: [0.5, 3.0]
+    # Kept clear of the 14-day warm-up at the start and of the final day, so a
+    # disruption always has scored days on both sides of it.
+    start_day: [20, 170]
 
 fallback:
   # Deterministic template explainer used when no API key is present, the
