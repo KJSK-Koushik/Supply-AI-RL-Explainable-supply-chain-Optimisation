@@ -108,12 +108,12 @@ reports/     write-ups and figures for submission
 | 4 | RL agent | trained; hyperparameter sweep running |
 | 5 | Evaluation harness | done - see results below |
 | 6 | LLM explainer | done - grounded, with template fallback |
-| 7 | LLM scenario generator | pending |
+| 7 | LLM scenario generator | done - validated and clamped |
 | 8 | Dashboard | pending |
 | 9 | LLM-curriculum training | pending |
 | 10 | Report pack | pending |
 
-92 tests pass. Run them with:
+119 tests pass. Run them with:
 
 ```bash
 D:/venvs/supplyai/Scripts/python -m pytest tests/ -q
@@ -149,6 +149,43 @@ deterministic template.
 Free-tier models are rate-limited constantly, so the client retries with
 backoff and falls through a list of models. With no API key, or when every
 model refuses, the template takes over and says so -- the demo cannot break.
+
+## Stress testing
+
+Phase 7 asks an LLM for a crisis, refuses to trust any of it, and measures the
+damage:
+
+```bash
+python scripts/demo_scenarios.py
+python scripts/demo_scenarios.py --offline    # hand-written crises, no API needed
+```
+
+A generated example -- four disruptions that deliberately overlap:
+
+```
+Demand for products [0, 2, 5, 7] is 3.0x normal over days 45-65   viral social media trend
+Supplier 2 is offline for days 50-63                              cyberattack on mid-tier supplier
+Supplier 0 takes 6 extra days over days 55-72                     port congestion at major hub
+Purchase costs are 1.60x over days 60-84                          raw material shortage
+```
+
+Nothing the model emits is executed. Every field is parsed, type checked,
+range clamped and bounds checked against the real product and supplier counts;
+anything that does not fit is dropped, and windows are repositioned to land
+inside the episode. Given six hostile inputs -- an invented scenario type,
+supplier 9 on a three-supplier world, a 999-day duration, a cost multiplier of
+"lots" -- three survive, none as written.
+
+**The RL agent is markedly less robust than the classical policy.** Under the
+same disruption, across five seeds:
+
+| Policy | Calm | Disrupted | Change |
+|---|---|---|---|
+| forecast + safety stock | 84,039 | 72,935 | -13% |
+| MaskablePPO agent | 70,206 | 50,454 | **-28%** |
+
+The agent degrades more than twice as badly on conditions it never trained on.
+That is the gap Phase 9's curriculum is meant to close.
 
 ## Current results
 
