@@ -38,7 +38,12 @@ def apply_overrides(cfg: dict, overrides: list[str]) -> dict:
     return cfg
 
 
-def make_vec_env(n_envs: int, seed: int, monitor_dir: Path | None = None):
+def make_vec_env(
+    n_envs: int,
+    seed: int,
+    monitor_dir: Path | None = None,
+    scenario_sets: list | None = None,
+):
     from stable_baselines3.common.monitor import Monitor
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
@@ -47,6 +52,12 @@ def make_vec_env(n_envs: int, seed: int, monitor_dir: Path | None = None):
     def factory(rank: int):
         def _init():
             env = SupplyChainEnv(seed=seed + rank)
+            if scenario_sets:
+                from src.agents.curriculum import CurriculumWrapper
+
+                # Each worker gets its own seed, so the workers draw different
+                # crises on the same step rather than all facing the same one.
+                env = CurriculumWrapper(env, scenario_sets, seed=seed + rank)
             path = str(monitor_dir / f"env{rank}") if monitor_dir else None
             return Monitor(env, filename=path)
 
@@ -123,6 +134,16 @@ def main() -> None:
     ap.add_argument("--resume", action="store_true", help="continue from last checkpoint")
     ap.add_argument("--set", nargs="*", default=[], help="override, e.g. ppo.ent_coef=0.02")
     ap.add_argument("--timesteps", type=int, default=None)
+    ap.add_argument(
+        "--curriculum",
+        action="store_true",
+        help="train against LLM-generated disruptions (Phase 9)",
+    )
+    ap.add_argument(
+        "--offline-curriculum",
+        action="store_true",
+        help="build the curriculum pool from hand-written crises only, no LLM calls",
+    )
     args = ap.parse_args()
 
     cfg = apply_overrides(load_config("train"), args.set)
@@ -149,7 +170,19 @@ def main() -> None:
         from stable_baselines3 import PPO as Algo
     from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback
 
-    venv = make_vec_env(run_cfg["n_envs"], run_cfg["seed"], log_dir)
+    scenario_sets = None
+    if args.curriculum:
+        from src.agents.curriculum import build_pool, split_pool
+
+        pool = build_pool(use_llm=not args.offline_curriculum)
+        scenario_sets, holdout = split_pool(pool)
+        print(
+            f"curriculum: {len(scenario_sets)} training sets, "
+            f"{len(holdout)} held out for evaluation",
+            flush=True,
+        )
+
+    venv = make_vec_env(run_cfg["n_envs"], run_cfg["seed"], log_dir, scenario_sets)
 
     net_arch = ppo_cfg.pop("net_arch", [128, 128])
     policy = ppo_cfg.pop("policy", "MlpPolicy")

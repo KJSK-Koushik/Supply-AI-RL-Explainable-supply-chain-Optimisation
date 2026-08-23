@@ -1,0 +1,690 @@
+{
+  "sources": [
+    "fallback",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free"
+  ],
+  "library_size": 19,
+  "sets": [
+    [
+      {
+        "type": "supplier_outage",
+        "start_day": 50,
+        "duration": 10,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 2,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "unreliable partner collapse"
+      },
+      {
+        "type": "supplier_outage",
+        "start_day": 68,
+        "duration": 10,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "cheap supplier offline mid-rush"
+      },
+      {
+        "type": "supplier_outage",
+        "start_day": 55,
+        "duration": 21,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 2,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "mid-tier factory shutdown"
+      }
+    ],
+    [
+      {
+        "type": "supplier_delay",
+        "start_day": 30,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 6,
+        "cost_multiplier": 1.0,
+        "label": "port congestion"
+      },
+      {
+        "type": "supplier_delay",
+        "start_day": 45,
+        "duration": 20,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 7,
+        "cost_multiplier": 1.0,
+        "label": "logistics bottleneck"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 70,
+        "duration": 30,
+        "products": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "multiplier": 1.8,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "seasonal promo pulls forward demand"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 20,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.5,
+        "label": "raw material shortage"
+      }
+    ],
+    [
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 20,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.5,
+        "label": "raw material shortage"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material shortage"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 25,
+        "products": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "multiplier": 2.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "holiday surge"
+      }
+    ],
+    [
+      {
+        "type": "demand_spike",
+        "start_day": 70,
+        "duration": 30,
+        "products": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "multiplier": 1.8,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "seasonal promo pulls forward demand"
+      },
+      {
+        "type": "supplier_delay",
+        "start_day": 45,
+        "duration": 25,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 6,
+        "cost_multiplier": 1.0,
+        "label": "port congestion"
+      }
+    ],
+    [
+      {
+        "type": "supplier_outage",
+        "start_day": 55,
+        "duration": 21,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 2,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "mid-tier factory shutdown"
+      },
+      {
+        "type": "supplier_outage",
+        "start_day": 50,
+        "duration": 15,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "factory fire"
+      }
+    ],
+    [
+      {
+        "type": "supplier_delay",
+        "start_day": 45,
+        "duration": 25,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 6,
+        "cost_multiplier": 1.0,
+        "label": "port congestion"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 70,
+        "duration": 30,
+        "products": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "multiplier": 1.8,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "seasonal promo pulls forward demand"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 20,
+        "products": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "multiplier": 3.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "TikTok viral trend"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 110,
+        "duration": 25,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.35,
+        "label": "input cost spike"
+      }
+    ],
+    [
+      {
+        "type": "price_shock",
+        "start_day": 85,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material tariffs cascade"
+      },
+      {
+        "type": "supplier_delay",
+        "start_day": 30,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 6,
+        "cost_multiplier": 1.0,
+        "label": "port congestion"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 20,
+        "products": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "multiplier": 3.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "TikTok viral trend"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 30,
+        "products": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "multiplier": 3.5,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "early seasonal surge"
+      }
+    ],
+    [
+      {
+        "type": "price_shock",
+        "start_day": 85,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material tariffs cascade"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material shortage"
+      },
+      {
+        "type": "supplier_delay",
+        "start_day": 30,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 6,
+        "cost_multiplier": 1.0,
+        "label": "port congestion"
+      }
+    ],
+    [
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 25,
+        "products": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "multiplier": 2.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "holiday surge"
+      },
+      {
+        "type": "supplier_outage",
+        "start_day": 55,
+        "duration": 21,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 2,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "mid-tier factory shutdown"
+      },
+      {
+        "type": "supplier_outage",
+        "start_day": 68,
+        "duration": 10,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "cheap supplier offline mid-rush"
+      }
+    ],
+    [
+      {
+        "type": "demand_spike",
+        "start_day": 60,
+        "duration": 20,
+        "products": null,
+        "multiplier": 2.5,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "seasonal rush"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 110,
+        "duration": 25,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.35,
+        "label": "input cost spike"
+      },
+      {
+        "type": "supplier_delay",
+        "start_day": 45,
+        "duration": 20,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 7,
+        "cost_multiplier": 1.0,
+        "label": "logistics bottleneck"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 20,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.5,
+        "label": "raw material shortage"
+      }
+    ],
+    [
+      {
+        "type": "supplier_delay",
+        "start_day": 30,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 6,
+        "cost_multiplier": 1.0,
+        "label": "port congestion"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 85,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material tariffs cascade"
+      },
+      {
+        "type": "supplier_delay",
+        "start_day": 25,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 3,
+        "cost_multiplier": 1.0,
+        "label": "port congestion at budget carrier"
+      },
+      {
+        "type": "supplier_outage",
+        "start_day": 50,
+        "duration": 15,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "factory fire"
+      }
+    ],
+    [
+      {
+        "type": "price_shock",
+        "start_day": 110,
+        "duration": 25,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.35,
+        "label": "input cost spike"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material shortage"
+      },
+      {
+        "type": "supplier_delay",
+        "start_day": 25,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 3,
+        "cost_multiplier": 1.0,
+        "label": "port congestion at budget carrier"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 25,
+        "products": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "multiplier": 2.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "holiday surge"
+      }
+    ],
+    [
+      {
+        "type": "supplier_outage",
+        "start_day": 50,
+        "duration": 15,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "factory fire"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 15,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.8,
+        "label": "emergency air-freight costs"
+      }
+    ],
+    [
+      {
+        "type": "price_shock",
+        "start_day": 110,
+        "duration": 25,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.35,
+        "label": "input cost spike"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 85,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material tariffs cascade"
+      }
+    ],
+    [
+      {
+        "type": "supplier_delay",
+        "start_day": 30,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 6,
+        "cost_multiplier": 1.0,
+        "label": "port congestion"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 20,
+        "products": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "multiplier": 3.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "TikTok viral trend"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 70,
+        "duration": 30,
+        "products": [
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "multiplier": 1.8,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "seasonal promo pulls forward demand"
+      },
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 25,
+        "products": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "multiplier": 2.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "holiday surge"
+      }
+    ],
+    [
+      {
+        "type": "demand_spike",
+        "start_day": 40,
+        "duration": 20,
+        "products": [
+          0,
+          1,
+          2,
+          5,
+          7
+        ],
+        "multiplier": 3.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "TikTok viral trend"
+      },
+      {
+        "type": "supplier_outage",
+        "start_day": 50,
+        "duration": 15,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": 0,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.0,
+        "label": "factory fire"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 85,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material tariffs cascade"
+      },
+      {
+        "type": "price_shock",
+        "start_day": 55,
+        "duration": 30,
+        "products": null,
+        "multiplier": 1.0,
+        "supplier": null,
+        "extra_lead_days": 0,
+        "cost_multiplier": 1.6,
+        "label": "raw material shortage"
+      }
+    ]
+  ]
+}
