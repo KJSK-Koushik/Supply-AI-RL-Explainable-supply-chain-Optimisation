@@ -107,7 +107,7 @@ reports/     write-ups and figures for submission
 | 3 | Baseline policies, tuned | done |
 | 4 | RL agent | trained; hyperparameter sweep running |
 | 5 | Evaluation harness | done - see results below |
-| 6 | LLM explainer | next |
+| 6 | LLM explainer | done - grounded, with template fallback |
 | 7 | LLM scenario generator | pending |
 | 8 | Dashboard | pending |
 | 9 | LLM-curriculum training | pending |
@@ -121,6 +121,34 @@ D:/venvs/supplyai/Scripts/python -m pytest tests/ -q
 
 Machines without the dashboard packages installed — CI, Kaggle — should
 deselect the checks that need them: `pytest -q -m "not local_env"`.
+
+## Explaining a decision
+
+Phase 6 turns one ordering decision into business English:
+
+```bash
+python scripts/demo_explainer.py --days 2
+```
+
+```
+--- day 44 (Wednesday, February) [nvidia/nemotron-3-ultra-550b-a55b:free] ---
+Product 21212 (Pack Of 72 Retrospot Cake Cases) holds 2,438 units in stock with
+nothing on order, providing 14.5 days of cover at the typical daily demand of
+169 units. Recent demand has averaged 89 units over the last seven days, below
+its usual level, and there was no unmet demand yesterday. No order was placed
+today.
+```
+
+The model is never asked *why* a decision was made. It receives facts the
+simulator already computed and phrases them. The agent's real reason is a
+policy network; any "because" a language model supplies is a plausible story,
+not the cause. Every number in the output is checked against the supplied
+facts, and output containing anything else is discarded in favour of a
+deterministic template.
+
+Free-tier models are rate-limited constantly, so the client retries with
+backoff and falls through a list of models. With no API key, or when every
+model refuses, the template takes over and says so -- the demo cannot break.
 
 ## Current results
 
