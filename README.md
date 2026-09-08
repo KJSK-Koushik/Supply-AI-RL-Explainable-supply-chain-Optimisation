@@ -110,7 +110,7 @@ reports/     write-ups and figures for submission
 | 6 | LLM explainer | done - grounded, with template fallback |
 | 7 | LLM scenario generator | done - validated and clamped |
 | 8 | Dashboard | pending |
-| 9 | LLM-curriculum training | pending |
+| 9 | LLM-curriculum training | done - did not improve robustness |
 | 10 | Report pack | pending |
 
 119 tests pass. Run them with:
@@ -186,6 +186,42 @@ same disruption, across five seeds:
 
 The agent degrades more than twice as badly on conditions it never trained on.
 That is the gap Phase 9's curriculum is meant to close.
+
+## Curriculum training (Phase 9): a negative result
+
+Phase 7 showed the agent was brittle, so Phase 9 trained one on LLM-generated
+crises -- a pool of disruption sets split in two, training on one half, scored
+on the other. `curriculum_1m` matches `masked_1m` in hyperparameters, seed and
+step count, so the curriculum is the only variable.
+
+Scored on 10 calm seeds and 6 held-out disruption sets:
+
+| Agent | Calm | Disrupted | Drop |
+|---|---|---|---|
+| forecast + safety stock | 83,282 | 51,175 | -38.6% |
+| **kaggle_full01** (tuned, no curriculum) | **76,567** | **48,244** | **-37.0%** |
+| masked_1m (control) | 70,279 | 36,925 | -47.5% |
+| **curriculum_1m** | 62,904 | 37,071 | -41.1% |
+
+**The curriculum did not work.** Its smaller percentage drop is the trap this
+evaluation was built to expose: the drop is smaller because there is less to
+lose. Absolute profit under disruption is 37,071 against the control's 36,925 --
+a 0.4% difference, well inside noise -- bought by giving up 7,375 of calm
+performance. The paired test on absolute drops gives t = +1.69, not significant.
+
+The more useful finding is next to it: **plain hyperparameter tuning improved
+robustness more than curriculum training did.** `kaggle_full01` never saw a
+disruption during training and yet has the highest disrupted profit of any
+agent and the smallest drop.
+
+One caveat stated rather than buried: both agents got 1M steps, but the
+curriculum agent faced a harder and more varied distribution, so part of the
+shortfall may be undertraining rather than the method failing. Equal-steps is
+the controlled comparison; equal-convergence would be a different experiment.
+
+The drops here are larger than the -13%/-28% quoted under stress testing above
+because these are the six held-out LLM sets, which are harsher than the three
+hand-written ones.
 
 ## Current results
 

@@ -25,6 +25,7 @@ from src.eval.compare import paired_comparison
 from src.eval.runner import EVAL_SEEDS, run_episode
 
 CALM_SEEDS = EVAL_SEEDS[:10]  # ten seeds per condition keeps the run tractable
+PAIRED_SEEDS = CALM_SEEDS[:5]  # each holdout set is run on these five
 
 
 def load_policies() -> dict:
@@ -50,30 +51,27 @@ def load_policies() -> dict:
     return policies
 
 
-def score(policy, scenario_sets: list) -> tuple[float, float]:
-    """Mean profit when calm, and mean profit across the disruption sets."""
-    calm = float(np.mean([run_episode(policy, s)["total_profit"] for s in CALM_SEEDS]))
-    rough = []
-    for scenarios in scenario_sets:
-        for seed in CALM_SEEDS[:5]:
-            rough.append(run_episode(policy, seed, scenarios=scenarios)["total_profit"])
-    return calm, float(np.mean(rough))
+def measure(policy, scenario_sets: list) -> tuple[float, float, list[float]]:
+    """Calm profit, disrupted profit, and the per-pair drops, in one pass.
 
+    Calm episodes are run once per seed and reused. Computing them separately
+    for the summary and again for the paired test doubled the work of the
+    heaviest job in the project for an identical answer -- these are
+    deterministic given a seed.
 
-def per_set_drops(policy, scenario_sets: list) -> list[float]:
-    """Profit drop on each (set, seed) pair, for the paired test.
-
-    Paired across identical (disruption, seed) pairs: every policy faces the
-    same crisis on the same customers, so a difference in drop is a difference
-    in robustness rather than in which crises it happened to draw.
+    Drops are paired across identical (disruption, seed) pairs: every policy
+    meets the same crisis on the same customers, so a difference in drop is a
+    difference in robustness rather than in which crises it happened to draw.
     """
-    drops = []
+    calm_by_seed = {s: run_episode(policy, s)["total_profit"] for s in CALM_SEEDS}
+
+    rough, drops = [], []
     for scenarios in scenario_sets:
-        for seed in CALM_SEEDS[:5]:
-            calm = run_episode(policy, seed)["total_profit"]
-            rough = run_episode(policy, seed, scenarios=scenarios)["total_profit"]
-            drops.append(rough - calm)
-    return drops
+        for seed in PAIRED_SEEDS:
+            profit = run_episode(policy, seed, scenarios=scenarios)["total_profit"]
+            rough.append(profit)
+            drops.append(profit - calm_by_seed[seed])
+    return float(np.mean(list(calm_by_seed.values()))), float(np.mean(rough)), drops
 
 
 def main() -> None:
@@ -92,14 +90,14 @@ def main() -> None:
 
     rows, drops = {}, {}
     for name, policy in policies.items():
-        calm, rough = score(policy, holdout)
+        calm, rough, pair_drops = measure(policy, holdout)
+        drops[name] = pair_drops
         rows[name] = {
             "calm": calm,
             "disrupted": rough,
             "drop": rough - calm,
             "drop_pct": (rough - calm) / calm * 100 if calm else float("nan"),
         }
-        drops[name] = per_set_drops(policy, holdout)
         print(
             f"  {name:26s} calm {calm:11,.0f}   disrupted {rough:11,.0f}   "
             f"{rows[name]['drop_pct']:+6.1f}%",
