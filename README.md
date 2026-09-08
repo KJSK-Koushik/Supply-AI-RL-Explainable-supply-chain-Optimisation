@@ -105,7 +105,7 @@ reports/     write-ups and figures for submission
 | 1 | Data pipeline and calibration | done |
 | 2 | Supply chain simulator | done |
 | 3 | Baseline policies, tuned | done |
-| 4 | RL agent | trained; hyperparameter sweep running |
+| 4 | RL agent | done - swept, best config trained to 2M steps |
 | 5 | Evaluation harness | done - see results below |
 | 6 | LLM explainer | done - grounded, with template fallback |
 | 7 | LLM scenario generator | done - validated and clamped |
@@ -192,18 +192,37 @@ That is the gap Phase 9's curriculum is meant to close.
 Scored on 30 held-out seeds that neither the agent nor the baselines were
 tuned on. Profit is per 180-day episode, in GBP.
 
+The two 2M-step rows come from the Kaggle sweep log rather than from
+`results/comparison.json`, which still holds the pre-sweep run: the sweep's
+output files have not been retrieved from Kaggle yet, so the figures below are
+also from the earlier run. Every number here is quoted from that log verbatim.
+
 | Policy | Profit | Fill rate | Ordering cost |
 |---|---|---|---|
 | forecast + safety stock (best classical) | 83,624 | 97.9% | 2,729 |
 | newsvendor | 82,049 | 98.0% | 3,275 |
+| **MaskablePPO agent, tuned, 2M steps** | **75,926** | **95.1%** | **5,522** |
+| MaskablePPO agent, 2M steps, runner-up config | 73,331 | 93.6% | 6,774 |
 | EOQ + reorder point | 72,302 | 96.8% | 2,626 |
-| **MaskablePPO agent, 1M steps** | **71,227** | **94.3%** | **7,068** |
+| MaskablePPO agent, untuned, 1M steps | 71,227 | 94.3% | 7,068 |
 | (s,S) | 70,365 | 94.9% | 2,905 |
 | PPO without action masking, 1M steps | 22,566 | 94.8% | 13,988 |
 
-**The tuned classical policy currently beats the RL agent** by 12,397 per
-episode (paired t = -9.22, n = 30, significant). The comparison is paired
-because both policies meet identical customers on each seed.
+**The tuned classical policy still beats the RL agent** by 7,698 per episode
+(paired t = -6.45, n = 30, significant). The comparison is paired because both
+policies meet identical customers on each seed.
+
+A hyperparameter sweep of 8 configurations closed 38% of the gap, from -12,397
+to -7,698, and moved the agent above two of the four classical policies. The
+winning configuration used the *lowest* learning rate offered (5e-5) and the
+larger network, confirming the diagnosis behind the search: the earlier runs
+were oscillating because they learned too fast, not because they lacked
+capacity.
+
+The agents also carry zero overflow loss, where every classical policy wastes
+some -- the agent learned the shared warehouse constraint properly. Its
+remaining weakness is specific: it still fragments orders across suppliers,
+paying twice the baseline's ordering fees.
 
 This is reported as a result rather than buried. The comparison is fair by
 construction — same environment, same seeds, same action granularity, and the
@@ -211,8 +230,8 @@ baselines were grid-search tuned rather than left at textbook defaults, which
 lifted the best of them from 66,395 to 84,920 during tuning. Beating a weak
 baseline would have proved nothing.
 
-Where the remaining gap sits: stockouts ~4,700, fragmented sourcing ~4,300
-(the agent pays 2.6x the baseline's ordering fees), lost revenue ~2,900.
+Where the remaining gap sits: stockouts (95.1% fill against 97.9%) and
+fragmented sourcing (5,522 in ordering fees against 2,729).
 
 Action masking is the largest single lever found so far, worth roughly 3x on
 its own. A sweep of 8 configurations over 6M steps is running to test whether
