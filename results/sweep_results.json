@@ -1,0 +1,144 @@
+[
+  {
+    "name": "kaggle_s00",
+    "params": {
+      "ppo.learning_rate": 5e-05,
+      "ppo.ent_coef": 0.02,
+      "ppo.gamma": 0.999,
+      "ppo.n_steps": 1024,
+      "ppo.net_arch": "[256,256]"
+    },
+    "steps": 250000,
+    "best_profit": 48109.5133995821,
+    "wall_seconds": 721.4435229301453,
+    "ok": true
+  },
+  {
+    "name": "kaggle_s01",
+    "params": {
+      "ppo.learning_rate": 5e-05,
+      "ppo.ent_coef": 0.005,
+      "ppo.gamma": 0.995,
+      "ppo.n_steps": 512,
+      "ppo.net_arch": "[128,128]"
+    },
+    "steps": 250000,
+    "best_profit": 42230.32841422595,
+    "wall_seconds": 677.9041657447815,
+    "ok": true
+  },
+  {
+    "name": "kaggle_s02",
+    "params": {
+      "ppo.learning_rate": 5e-05,
+      "ppo.ent_coef": 0.005,
+      "ppo.gamma": 0.995,
+      "ppo.n_steps": 1024,
+      "ppo.net_arch": "[256,256]"
+    },
+    "steps": 250000,
+    "best_profit": 61078.977670525135,
+    "wall_seconds": 724.2645108699799,
+    "ok": true
+  },
+  {
+    "name": "kaggle_s03",
+    "params": {
+      "ppo.learning_rate": 5e-05,
+      "ppo.ent_coef": 0.001,
+      "ppo.gamma": 0.999,
+      "ppo.n_steps": 1024,
+      "ppo.net_arch": "[256,256]"
+    },
+    "steps": 250000,
+    "best_profit": 42656.4461143307,
+    "wall_seconds": 724.6451308727264,
+    "ok": true
+  },
+  {
+    "name": "kaggle_s04",
+    "params": {
+      "ppo.learning_rate": 0.0001,
+      "ppo.ent_coef": 0.02,
+      "ppo.gamma": 0.995,
+      "ppo.n_steps": 512,
+      "ppo.net_arch": "[128,128]"
+    },
+    "steps": 250000,
+    "best_profit": 66271.90066812786,
+    "wall_seconds": 679.8578729629517,
+    "ok": true
+  },
+  {
+    "name": "kaggle_s05",
+    "params": {
+      "ppo.learning_rate": 5e-05,
+      "ppo.ent_coef": 0.005,
+      "ppo.gamma": 0.999,
+      "ppo.n_steps": 512,
+      "ppo.net_arch": "[256,256]"
+    },
+    "steps": 250000,
+    "best_profit": 44097.09239566344,
+    "wall_seconds": 709.1414074897766,
+    "ok": true
+  },
+  {
+    "name": "kaggle_s06",
+    "params": {
+      "ppo.learning_rate": 5e-05,
+      "ppo.ent_coef": 0.001,
+      "ppo.gamma": 0.995,
+      "ppo.n_steps": 512,
+      "ppo.net_arch": "[256,256]"
+    },
+    "steps": 250000,
+    "best_profit": 57570.42181222591,
+    "wall_seconds": 714.3798127174377,
+    "ok": true
+  },
+  {
+    "name": "kaggle_s07",
+    "params": {
+      "ppo.learning_rate": 0.0003,
+      "ppo.ent_coef": 0.05,
+      "ppo.gamma": 0.995,
+      "ppo.n_steps": 512,
+      "ppo.net_arch": "[128,128]"
+    },
+    "steps": 250000,
+    "best_profit": 60740.91020634201,
+    "wall_seconds": 676.4687972068787,
+    "ok": true
+  },
+  {
+    "name": "kaggle_full00",
+    "params": {
+      "ppo.learning_rate": 0.0001,
+      "ppo.ent_coef": 0.02,
+      "ppo.gamma": 0.995,
+      "ppo.n_steps": 512,
+      "ppo.net_arch": "[128,128]"
+    },
+    "steps": 2000000,
+    "best_profit": 78032.24088690105,
+    "wall_seconds": 5269.934864997864,
+    "ok": true,
+    "screened_from": "kaggle_s04"
+  },
+  {
+    "name": "kaggle_full01",
+    "params": {
+      "ppo.learning_rate": 5e-05,
+      "ppo.ent_coef": 0.005,
+      "ppo.gamma": 0.995,
+      "ppo.n_steps": 1024,
+      "ppo.net_arch": "[256,256]"
+    },
+    "steps": 2000000,
+    "best_profit": 82105.15399346368,
+    "wall_seconds": 5449.94801068306,
+    "ok": true,
+    "screened_from": "kaggle_s02"
+  }
+]

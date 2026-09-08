@@ -106,8 +106,14 @@ def main() -> None:
             flush=True,
         )
 
-    curriculum = next((n for n in rows if "curriculum" in n.lower()), None)
-    plain = next((n for n in rows if "1m" in n and n != curriculum), None)
+    # The control is named, not discovered. curriculum_1m was trained with
+    # masked_1m's exact hyperparameters, seed and step count, so it is the only
+    # run that isolates the curriculum as the variable. Picking "some other
+    # agent with 1m in its name" would have selected baseline_1m, which lacks
+    # action masking, or a swept 2M-step run -- either would attribute the
+    # difference to the curriculum when it came from something else.
+    curriculum = "curriculum_1m" if "curriculum_1m" in rows else None
+    plain = "masked_1m" if "masked_1m" in rows else None
     verdict = None
     if curriculum and plain:
         cmp = paired_comparison(drops[curriculum], drops[plain])

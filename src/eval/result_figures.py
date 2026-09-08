@@ -43,11 +43,27 @@ def fig_policy_comparison(outdir) -> str | None:
         data = json.load(fh)
     summaries = data["summaries"]
 
+    # Which rows are classical is read from baselines.json, not guessed from the
+    # name. The previous rule -- "1m" in the name -- silently painted every
+    # swept agent green as a classical policy once the Kaggle runs landed,
+    # because they are called kaggle_full01 and friends.
+    classical = set()
+    bl = resolve("results/baselines.json")
+    if bl.exists():
+        with bl.open(encoding="utf-8") as fh:
+            classical = set(json.load(fh)["policies"])
+
+    def is_screening(name: str) -> bool:
+        # Screening runs are 250k-step triage inside the sweep, and the probe
+        # measured throughput. Neither is a result, and eleven extra bars bury
+        # the four rows anyone is looking for.
+        return "_s0" in name or "probe" in name
+
     order = sorted(summaries, key=lambda k: summaries[k]["total_profit"])
-    names = [n for n in order if n != "random"]
+    names = [n for n in order if n.split(" (")[0] != "random" and not is_screening(n)]
     profits = [summaries[n]["total_profit"] for n in names]
     errs = [summaries[n]["total_profit_std"] for n in names]
-    is_agent = ["1m" in n for n in names]
+    is_agent = [n.split(" (")[0] not in classical for n in names]
     colors = [AGENT if a else CLASSICAL for a in is_agent]
 
     # Run directories are named for the experiment, not the reader. Anything
@@ -57,8 +73,10 @@ def fig_policy_comparison(outdir) -> str | None:
         "EOQ+ROP": "EOQ + reorder point",
         "(s,S)": "(s, S) policy",
         "constant": "constant order (control)",
-        "masked_1m (masked)": "PPO + action masking",
-        "baseline_1m": "PPO, no masking",
+        "masked_1m (masked)": "PPO + masking, untuned (1M)",
+        "baseline_1m": "PPO, no masking (1M)",
+        "kaggle_full01 (masked)": "PPO + masking, tuned (2M)",
+        "kaggle_full00 (masked)": "PPO + masking, 2nd config (2M)",
     }
     labels = [pretty.get(n, n) for n in names]
 
@@ -86,8 +104,8 @@ def fig_policy_comparison(outdir) -> str | None:
     ]
     ax.legend(handles, ["classical policy (tuned)", "RL agent"], loc="lower right")
     ax.set_title(
-        "Tuned classical policies still lead the RL agent\n"
-        "(error bars: standard deviation across seeds)",
+        "Tuning closed 38% of the gap; the classical policy still leads\n"
+        "(error bars: standard deviation across 30 held-out seeds)",
         fontweight="bold",
         fontsize=10,
     )
@@ -106,9 +124,12 @@ def fig_training_curves(outdir) -> str | None:
     selector saw. That makes this a picture of learning progress, not a result:
     the reported scores come from the held-out seeds instead.
     """
+    # Ordered worst to best so the legend reads as the story: masking first,
+    # then tuning. Runs absent from disk are skipped rather than faked.
     runs = [
-        ("masked_1m", "PPO with action masking", AGENT),
-        ("baseline_1m", "PPO without masking", MUTED),
+        ("baseline_1m", "no masking (1M)", MUTED),
+        ("masked_1m", "+ action masking (1M)", "#e8846b"),
+        ("kaggle_full01", "+ tuned hyperparameters (2M)", AGENT),
     ]
     series = []
     for name, label, color in runs:
@@ -149,7 +170,7 @@ def fig_training_curves(outdir) -> str | None:
     ax.set_ylabel("profit per episode (GBP)")
     ax.legend(loc="lower right")
     ax.set_title(
-        "Action masking is worth roughly 3x, but neither run reaches the baseline\n"
+        "Masking, then tuning -- and still short of the classical policy\n"
         "(scored on the training-eval seeds used to pick checkpoints)",
         fontweight="bold",
         fontsize=10,
