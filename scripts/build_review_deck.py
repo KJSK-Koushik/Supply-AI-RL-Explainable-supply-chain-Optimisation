@@ -906,55 +906,58 @@ s = fill_content(
 rows = [
     ["Policy", "Profit", "Fill rate", "Ordering cost"],
     ["forecast + safety stock (best classical)", "83,624", "97.9%", "2,729"],
-    ["MaskablePPO agent, 1M steps", "71,227", "94.3%", "7,068"],
+    ["MaskablePPO agent, tuned, 2M steps", "75,926", "95.1%", "5,522"],
+    ["MaskablePPO agent, untuned, 1M steps", "71,227", "94.3%", "7,068"],
     ["PPO without action masking, 1M steps", "22,566", "94.8%", "13,988"],
 ]
 s = add_shapes(
-    s, table(43, [4600000, 1900000, 1900000, 2100000], rows, X, 2250000, size=1250, row_h=450000)
+    s, table(43, [4600000, 1900000, 1900000, 2100000], rows, X, 2250000, size=1200, row_h=420000)
 )
 s = add_shapes(
     s,
     (
         '<p:sp><p:nvSpPr><p:cNvPr id="44" name="Findings"/><p:cNvSpPr txBox="1"/>'
         "<p:nvPr/></p:nvSpPr>"
-        f'<p:spPr><a:xfrm><a:off x="{X}" y="4200000"/>'
+        f'<p:spPr><a:xfrm><a:off x="{X}" y="4420000"/>'
         '<a:ext cx="10515600" cy="1900000"/></a:xfrm>'
         '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>'
         '<p:txBody><a:bodyPr wrap="square" lIns="0" rIns="0"><a:normAutofit/></a:bodyPr>'
         "<a:lstStyle/>"
         + para(
-            "The classical policy still wins by 12,397 per episode "
-            "(paired t = -9.22, n = 30, significant).",
+            "The classical policy still wins by 7,698 per episode "
+            "(paired t = -6.45, n = 30, significant). The agent reaches 90.8% of "
+            "its profit and beats two of the four classical policies.",
             0,
-            1500,
+            1400,
             True,
             DARKGREEN,
             False,
         )
         + para(
-            "Where the gap comes from: stockouts about 4,700; fragmented sourcing "
-            "about 4,300 (the agent pays 2.6x the baseline's ordering fees); lost "
-            "revenue about 2,900.",
+            "Where the gap comes from: stockouts (95.1% fill against 97.9%) and "
+            "fragmented sourcing (the agent pays twice the baseline's ordering "
+            "fees, 5,522 against 2,729).",
             0,
-            1350,
+            1250,
             False,
             INK,
             False,
         )
         + para(
-            "Action masking is the single largest lever found so far, tripling agent "
-            "profit from 23,717 to 72,740.",
+            "Action masking is the largest single lever (about 3x). Tuning then "
+            "closed 38% of the remaining gap, from 12,397 to 7,698.",
             0,
-            1350,
+            1250,
             False,
             INK,
             False,
         )
         + para(
-            "A hyperparameter sweep of 8 configurations over 6 million steps is "
-            "running to test whether the remaining gap can be closed.",
+            "The sweep chose the lowest learning rate offered and the larger "
+            "network: the earlier runs oscillated because they learned too fast, "
+            "not because they lacked capacity.",
             0,
-            1350,
+            1250,
             False,
             INK,
             False,
@@ -993,7 +996,7 @@ write(
                 ),
                 (
                     "Honest current finding: the tuned classical policy still beats the RL agent "
-                    "by 12,397 per episode, and the difference is statistically significant.",
+                    "by 7,698 per episode, and the difference is statistically significant.",
                     0,
                     1600,
                     True,
@@ -1734,19 +1737,18 @@ for i, (rid, fname) in enumerate(
     pics.append(picture(200 + i, rid, X + i * (FW + GAPF), 2050000, FW, round(FW * h / w)))
 
 caps = para(
-    "Left: every policy on the 30 held-out reporting seeds. The best "
-    "classical policy leads the agent, and the spread across seeds is wide "
-    "enough that only a paired test can settle the difference.",
+    "Left: every policy on the 30 held-out reporting seeds. The tuned agent "
+    "sits third, above two classical policies; the spread across seeds is "
+    "wide enough that only a paired test can settle the ordering.",
     0,
     1150,
     False,
     INK,
     False,
 ) + para(
-    "Right: learning progress on the training-eval seeds. Action masking "
-    "lifts the whole curve; both runs flatten below the classical "
-    "reference line, and the unmasked run was still improving at 1M steps, "
-    "which is why the sweep trains to 2M.",
+    "Right: learning progress on the training-eval seeds. Masking lifts the "
+    "whole curve; tuning lifts it again and trains to 2M steps. The tuned run "
+    "flattens just under the classical reference line rather than crossing it.",
     0,
     1150,
     False,
