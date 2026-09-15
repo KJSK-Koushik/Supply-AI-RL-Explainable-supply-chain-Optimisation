@@ -159,11 +159,24 @@ def main() -> None:
             float(np.mean([r["coverage"] for r in llm_rows])) if llm_rows else None
         ),
         "completeness_template": float(np.mean([r["template_coverage"] for r in rows])),
-        # "Accurate" = grounded AND complete, over the explanations the model
-        # actually produced. This is the number to quote.
-        "explanation_accuracy": (
-            sum(r["grounded"] and r["coverage"] == 1.0 for r in llm_rows) / len(llm_rows)
-            if llm_rows
+        # Two accuracies, and the distinction is the finding.
+        #
+        # raw_model_accuracy: grounded AND complete, over every output the
+        # model produced -- including the ones the guard then threw away. This
+        # is how good the LLM is on its own. (An ungrounded output cannot be
+        # accurate whatever else it says, so scoring it False is right.)
+        #
+        # delivered_accuracy: the same test on what the user actually saw,
+        # after the guard replaced ungrounded output with the template. This
+        # is how good the system is.
+        #
+        # An earlier version scored only outputs that had already passed the
+        # guard and called that "explanation accuracy". It could never have
+        # been below the grounding rate, and reported 100% for a model that
+        # invented a number one time in six.
+        "raw_model_accuracy": (
+            sum(r["grounded"] and r["coverage"] == 1.0 for r in reached) / len(reached)
+            if reached
             else None
         ),
         "delivered_accuracy": sum(r["coverage"] == 1.0 for r in rows) / len(rows),
@@ -181,12 +194,14 @@ def main() -> None:
             f"completeness (LLM)       {summary['completeness_llm']:.0%}  of required facts stated"
         )
     print(f"completeness (template)  {summary['completeness_template']:.0%}")
-    if summary["explanation_accuracy"] is not None:
+    if summary["raw_model_accuracy"] is not None:
         print(
-            f"EXPLANATION ACCURACY     {summary['explanation_accuracy']:.0%}  grounded and complete"
+            f"RAW MODEL ACCURACY       {summary['raw_model_accuracy']:.0%}  "
+            "grounded and complete, before the guard"
         )
     print(
-        f"delivered accuracy       {summary['delivered_accuracy']:.0%}  what the user actually saw"
+        f"DELIVERED ACCURACY       {summary['delivered_accuracy']:.0%}  "
+        "what the user actually saw, after the guard"
     )
     print(
         f"length                   {summary['mean_sentences']:.1f} sentences, {summary['mean_words']:.0f} words"

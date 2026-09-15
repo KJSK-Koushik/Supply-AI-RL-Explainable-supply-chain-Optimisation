@@ -196,7 +196,21 @@ A real example (nemotron, day 44):
 - **explanation accuracy** — both at once
 - **delivered accuracy** — what the user actually sees, after the guard replaces ungrounded output with the template
 
-<!-- EXPLAINER_EVAL_RESULTS -->
+| Metric | Value |
+|---|---|
+| Decisions evaluated | 30 (6 days × 10 products, tuned baseline, seed 500) |
+| LLM reachable | 100% of calls (after retries; models used: gemma-4-31b-it, nemotron-3-ultra) |
+| **Grounding rate** — raw model output contained only real numbers | **83%** (25 / 30) |
+| Completeness — required facts stated | 100% |
+| **Raw model accuracy** — grounded *and* complete, before the guard | **83%** |
+| **Delivered accuracy** — what the user saw, after the guard | **100%** |
+| Length | 2.9 sentences, 58 words |
+
+**Five of thirty model outputs contained a number the simulator never produced.** The grounding check caught all five and replaced them with the template, so every explanation actually delivered was correct and complete.
+
+This is the finding of the explainer evaluation, and it is a better one than "the LLM is accurate" would have been: **the guard is load-bearing.** Without it, one explanation in six would carry a fabricated figure — fluent, confident, and wrong in exactly the way a buyer would not notice. With it, none do. An explainability layer that trusted the model would have been quietly unsafe; this one is measured to be safe.
+
+The two accuracies are reported separately on purpose. An earlier version of the metric scored only outputs that had already passed the guard, and so reported 100% for a model that invented numbers 17% of the time. That number was true and useless; these two are the ones that mean something.
 
 ---
 

@@ -109,11 +109,11 @@ reports/     write-ups and figures for submission
 | 5 | Evaluation harness | done - see results below |
 | 6 | LLM explainer | done - grounded, with template fallback |
 | 7 | LLM scenario generator | done - validated and clamped |
-| 8 | Dashboard | pending |
+| 8 | Dashboard | done - `streamlit run app/dashboard.py` |
 | 9 | LLM-curriculum training | done - did not improve robustness |
-| 10 | Report pack | pending |
+| 10 | Report pack | done - [reports/final_report.md](reports/final_report.md) |
 
-119 tests pass. Run them with:
+133 tests pass. Run them with:
 
 ```bash
 D:/venvs/supplyai/Scripts/python -m pytest tests/ -q
@@ -121,6 +121,24 @@ D:/venvs/supplyai/Scripts/python -m pytest tests/ -q
 
 Machines without the dashboard packages installed — CI, Kaggle — should
 deselect the checks that need them: `pytest -q -m "not local_env"`.
+
+## Headline numbers
+
+There is no accuracy metric in an RL profit-optimisation problem -- there is no
+correct answer to be right about -- so the honest percentages are these, each
+with what it actually measures:
+
+| Metric | Value | What it measures |
+|---|---|---|
+| Relative profit | **90.8%** | tuned RL agent's profit as a share of the best classical policy's, 30 held-out seeds |
+| Fill rate | **95.1%** | share of customer demand the agent served (classical best: 97.9%) |
+| Explanation accuracy, delivered | **100%** | explanations shown to the user that were grounded and complete (30 decisions) |
+| Explanation accuracy, raw model | **83%** | the same test on the LLM's output before the grounding guard |
+| Weekday pattern stability | *r* = 0.87 | demand shape agreement across two independent years |
+
+The gap between the two explanation accuracies is the point: the model
+invented a number in 5 of 30 outputs, the guard caught every one, and the
+user saw none of them.
 
 ## Explaining a decision
 
@@ -145,6 +163,12 @@ policy network; any "because" a language model supplies is a plausible story,
 not the cause. Every number in the output is checked against the supplied
 facts, and output containing anything else is discarded in favour of a
 deterministic template.
+
+Measured on 30 real decisions (`python -m src.eval.explainer_eval`): the raw
+model output was grounded 83% of the time -- five of thirty contained a number
+the simulator never produced -- and the guard caught all five. Delivered
+accuracy, grounded and complete, was 100%. The guard is load-bearing, not
+decoration.
 
 Free-tier models are rate-limited constantly, so the client retries with
 backoff and falls through a list of models. With no API key, or when every
