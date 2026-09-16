@@ -722,7 +722,7 @@ write(
                 ),
                 (
                     "Masking blocks suppliers in outage and orders exceeding free capacity. Worth "
-                    "about 3x on its own: best profit rose from 23,717 to 72,740.",
+                    "about 3x on its own: best profit rose from ₹24.9 lakh to ₹76.4 lakh.",
                     1,
                     1350,
                 ),
@@ -827,7 +827,8 @@ s = fill_content(
         [
             (
                 "All five classical policies were tuned by grid search on 12 separate seeds, "
-                "then scored on 30 held-out seeds. Profit is per 180-day episode, in GBP.",
+                "then scored on 30 held-out seeds. Profit is per 180-day run, in rupees "
+                "(1 GBP = ₹105; the data is from a UK shop).",
                 0,
                 1400,
                 False,
@@ -839,13 +840,13 @@ s = fill_content(
     xfrm=(X, Y, CX, 620000),
 )
 rows = [
-    ["Policy", "Profit", "Std dev", "Fill rate", "Stockout cost", "Ordering cost"],
-    ["forecast + safety stock", "83,624", "4,389", "97.9%", "5,821", "2,729"],
-    ["newsvendor", "82,049", "4,222", "98.0%", "7,057", "3,275"],
-    ["EOQ + reorder point", "72,302", "7,028", "96.8%", "9,988", "2,626"],
-    ["(s, S) policy", "70,365", "6,782", "94.9%", "15,677", "2,905"],
-    ["constant order (control)", "50,751", "12,723", "92.3%", "27,644", "3,334"],
-    ["random (sanity check)", "-34,144", "12,971", "94.2%", "19,900", "14,869"],
+    ["Method", "Profit", "Spread", "Fill rate", "Stockout cost", "Ordering fees"],
+    ["forecast + safety stock", "₹87.8 lakh", "₹4.6 lakh", "97.9%", "₹6.1 lakh", "₹2.9 lakh"],
+    ["newsvendor", "₹86.2 lakh", "₹4.4 lakh", "98.0%", "₹7.4 lakh", "₹3.4 lakh"],
+    ["EOQ + reorder point", "₹75.9 lakh", "₹7.4 lakh", "96.8%", "₹10.5 lakh", "₹2.8 lakh"],
+    ["(s, S) policy", "₹73.9 lakh", "₹7.1 lakh", "94.9%", "₹16.5 lakh", "₹3.1 lakh"],
+    ["constant order (control)", "₹53.3 lakh", "₹13.4 lakh", "92.3%", "₹29.0 lakh", "₹3.5 lakh"],
+    ["random (sanity check)", "-₹35.9 lakh", "₹13.6 lakh", "94.2%", "₹20.9 lakh", "₹15.6 lakh"],
 ]
 s = add_shapes(
     s,
@@ -870,8 +871,8 @@ s = add_shapes(
         '<p:txBody><a:bodyPr wrap="square" lIns="0" rIns="0"><a:normAutofit/></a:bodyPr>'
         "<a:lstStyle/>"
         + para(
-            "Tuning mattered: widening the search grid lifted the best policy from "
-            "66,395 to 84,920 during tuning. Beating an untuned baseline would have "
+            "Tuning mattered: widening the search lifted the best method from "
+            "₹69.7 lakh to ₹89.2 lakh. Beating an untuned method would have "
             "proved nothing.",
             0,
             1300,
@@ -904,11 +905,11 @@ s = fill_content(
     xfrm=(X, Y, CX, 620000),
 )
 rows = [
-    ["Policy", "Profit", "Fill rate", "Ordering cost"],
-    ["forecast + safety stock (best classical)", "83,624", "97.9%", "2,729"],
-    ["MaskablePPO agent, tuned, 2M steps", "75,926", "95.1%", "5,522"],
-    ["MaskablePPO agent, untuned, 1M steps", "71,227", "94.3%", "7,068"],
-    ["PPO without action masking, 1M steps", "22,566", "94.8%", "13,988"],
+    ["Method", "Profit", "Fill rate", "Ordering fees"],
+    ["forecast + safety stock (best classical)", "₹87.8 lakh", "97.9%", "₹2.9 lakh"],
+    ["AI agent, tuned, 2M steps", "₹79.7 lakh", "95.1%", "₹5.8 lakh"],
+    ["AI agent, untuned, 1M steps", "₹74.8 lakh", "94.3%", "₹7.4 lakh"],
+    ["AI agent, no action masking, 1M steps", "₹23.7 lakh", "94.8%", "₹14.7 lakh"],
 ]
 s = add_shapes(
     s, table(43, [4600000, 1900000, 1900000, 2100000], rows, X, 2250000, size=1200, row_h=420000)
@@ -924,9 +925,9 @@ s = add_shapes(
         '<p:txBody><a:bodyPr wrap="square" lIns="0" rIns="0"><a:normAutofit/></a:bodyPr>'
         "<a:lstStyle/>"
         + para(
-            "The classical policy still wins by 7,698 per episode "
-            "(paired t = -6.45, n = 30, significant). The agent reaches 90.8% of "
-            "its profit and beats two of the four classical policies.",
+            "The classical method still wins, by ₹8.1 lakh per run "
+            "(paired t = -6.45, n = 30, significant). The AI reaches 90.8% of "
+            "its profit and beats two of the four classical methods.",
             0,
             1400,
             True,
@@ -934,9 +935,9 @@ s = add_shapes(
             False,
         )
         + para(
-            "Where the gap comes from: stockouts (95.1% fill against 97.9%) and "
-            "fragmented sourcing (the agent pays twice the baseline's ordering "
-            "fees, 5,522 against 2,729).",
+            "Where the gap comes from: the AI runs out of stock more often (95.1% "
+            "fill against 97.9%) and spreads orders across suppliers, paying twice "
+            "the ordering fees (₹5.8 lakh against ₹2.9 lakh).",
             0,
             1250,
             False,
@@ -944,8 +945,8 @@ s = add_shapes(
             False,
         )
         + para(
-            "Action masking is the largest single lever (about 3x). Tuning then "
-            "closed 38% of the remaining gap, from 12,397 to 7,698.",
+            "Action masking was the biggest single improvement (about 3x). Tuning "
+            "then closed 38% of the remaining gap, from ₹13.0 lakh to ₹8.1 lakh.",
             0,
             1250,
             False,
@@ -953,9 +954,9 @@ s = add_shapes(
             False,
         )
         + para(
-            "The sweep chose the lowest learning rate offered and the larger "
-            "network: the earlier runs oscillated because they learned too fast, "
-            "not because they lacked capacity.",
+            "The search picked the lowest learning rate on offer and the larger "
+            "network: the earlier runs were unstable because they learned too "
+            "fast, not because the network was too small.",
             0,
             1250,
             False,
@@ -996,7 +997,7 @@ write(
                 ),
                 (
                     "Honest current finding: the tuned classical policy still beats the RL agent "
-                    "by 7,698 per episode, and the difference is statistically significant.",
+                    "by ₹8.1 lakh per run, and the difference is statistically significant.",
                     0,
                     1600,
                     True,
@@ -1173,7 +1174,7 @@ suppliers = [
             "lead time:  5-8 days",
             "fill rate:  90%",
             "min order:  100 units",
-            "order fee:  20",
+            "order fee:  ₹2,100",
             "outage risk:  low",
         ],
     ),
@@ -1186,7 +1187,7 @@ suppliers = [
             "lead time:  1-3 days",
             "fill rate:  98%",
             "min order:  20 units",
-            "order fee:  45",
+            "order fee:  ₹4,725",
             "outage risk:  very low",
         ],
     ),
@@ -1199,7 +1200,7 @@ suppliers = [
             "lead time:  3-5 days",
             "fill rate:  80%",
             "min order:  50 units",
-            "order fee:  30",
+            "order fee:  ₹3,150",
             "outage risk:  highest",
         ],
     ),

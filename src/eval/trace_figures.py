@@ -23,6 +23,7 @@ import numpy as np
 
 from src.config import resolve
 from src.eval.runner import run_episode
+from src.money import RATE, RUPEE, inr, lakh_axis
 
 plt.rcParams.update({"figure.dpi": 130, "axes.grid": True, "grid.alpha": 0.3, "font.size": 9})
 
@@ -169,12 +170,19 @@ def run() -> list[str]:
         # exist only to clear an arbitrary opening inventory and are excluded
         # from every reported metric; including them made this panel's endpoint
         # disagree with the numbers in the tables by several thousand.
-        prof = np.cumsum(_totals(summary["trace"], "profit")[warmup:])
-        c.plot(days[warmup:], prof, color=colour, lw=1.6, label=f"{name}: {prof[-1]:,.0f}")
+        prof = np.cumsum(_totals(summary["trace"], "profit")[warmup:]) * RATE
+        c.plot(
+            days[warmup:],
+            prof,
+            color=colour,
+            lw=1.6,
+            label=f"{name}: {inr(prof[-1] / RATE, symbol=RUPEE)}",
+        )
     c.axhline(0, color="k", lw=0.8)
     c.set_title("C. Profit accumulating after warm-up", fontweight="bold", fontsize=10)
     c.set_xlabel("day")
-    c.set_ylabel("cumulative profit (GBP)")
+    c.set_ylabel(f"cumulative profit ({RUPEE})")
+    lakh_axis(c.yaxis)
     c.legend(fontsize=7.5, loc="upper left")
 
     # --- D: who each policy buys from -------------------------------------

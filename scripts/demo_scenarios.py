@@ -22,6 +22,7 @@ from src.config import resolve  # noqa: E402
 from src.eval.runner import evaluate  # noqa: E402
 from src.llm.client import OpenRouterClient  # noqa: E402
 from src.llm.scenario_gen import fallback_scenarios, generate  # noqa: E402
+from src.money import inr  # noqa: E402
 
 SEEDS = [500, 501, 502, 503, 504]
 
@@ -81,15 +82,15 @@ def main() -> None:
         print("no stored policies to score; run Phase 3 first")
         return
 
-    print(f"Scored on {len(SEEDS)} seeds, calm vs disrupted (GBP per episode)\n")
-    print(f"{'policy':28s}{'calm':>12s}{'disrupted':>12s}{'change':>12s}{'fill':>9s}")
+    print(f"Scored on {len(SEEDS)} seeds, calm vs disrupted (rupees per episode)\n")
+    print(f"{'policy':28s}{'calm':>14s}{'disrupted':>14s}{'change':>14s}{'fill':>9s}")
     for name, policy in policies.items():
         calm = evaluate(policy, SEEDS)
         rough = evaluate(policy, SEEDS, scenarios=scenarios)
         delta = rough["total_profit"] - calm["total_profit"]
         print(
-            f"{name:28s}{calm['total_profit']:12,.0f}{rough['total_profit']:12,.0f}"
-            f"{delta:+12,.0f}{rough['fill_rate']:9.1%}"
+            f"{name:28s}{inr(calm['total_profit']):>14s}{inr(rough['total_profit']):>14s}"
+            f"{inr(delta):>14s}{rough['fill_rate']:9.1%}"
         )
 
 

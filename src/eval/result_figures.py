@@ -18,6 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src.config import resolve
+from src.money import RATE, RUPEE, inr, lakh_axis
 
 plt.rcParams.update({"figure.dpi": 130, "axes.grid": True, "grid.alpha": 0.3, "font.size": 9})
 
@@ -61,8 +62,8 @@ def fig_policy_comparison(outdir) -> str | None:
 
     order = sorted(summaries, key=lambda k: summaries[k]["total_profit"])
     names = [n for n in order if n.split(" (")[0] != "random" and not is_screening(n)]
-    profits = [summaries[n]["total_profit"] for n in names]
-    errs = [summaries[n]["total_profit_std"] for n in names]
+    profits = [summaries[n]["total_profit"] * RATE for n in names]
+    errs = [summaries[n]["total_profit_std"] * RATE for n in names]
     is_agent = [n.split(" (")[0] not in classical for n in names]
     colors = [AGENT if a else CLASSICAL for a in is_agent]
 
@@ -84,14 +85,15 @@ def fig_policy_comparison(outdir) -> str | None:
     bars = ax.barh(
         labels, profits, xerr=errs, color=colors, capsize=3, error_kw={"ecolor": MUTED, "lw": 1}
     )
-    ax.set_xlabel("total profit over a 180-day episode (GBP, mean of 30 held-out seeds)")
+    ax.set_xlabel(f"total profit over a 180-day episode ({RUPEE}, mean of 30 held-out seeds)")
     ax.axvline(0, color="k", lw=0.8)
+    lakh_axis(ax.xaxis)
 
     for bar, p in zip(bars, profits, strict=True):
         ax.text(
-            p + (900 if p >= 0 else -900),
+            p + (900 * RATE if p >= 0 else -900 * RATE),
             bar.get_y() + bar.get_height() / 2,
-            f"{p:,.0f}",
+            inr(p / RATE, symbol=RUPEE),
             va="center",
             ha="left" if p >= 0 else "right",
             fontsize=8,
@@ -145,7 +147,7 @@ def fig_training_curves(outdir) -> str | None:
     fig, ax = plt.subplots(figsize=(8.2, 4.0))
     for label, color, hist in series:
         xs = [h["timesteps"] for h in hist]
-        ys = [h["profit"] for h in hist]
+        ys = [h["profit"] * RATE for h in hist]
         ax.plot(xs, ys, lw=1.6, color=color, label=label)
 
     bl = resolve("results/baselines.json")
@@ -153,12 +155,12 @@ def fig_training_curves(outdir) -> str | None:
         with bl.open(encoding="utf-8") as fh:
             b = json.load(fh)
         best = b["best_baseline"]
-        val = b["policies"][best]["eval"]["total_profit"]
+        val = b["policies"][best]["eval"]["total_profit"] * RATE
         ax.axhline(val, color=CLASSICAL, ls="--", lw=1.4)
         ax.text(
             ax.get_xlim()[1],
             val,
-            f"  best classical policy ({best}): {val:,.0f}",
+            f"  best classical policy ({best}): {inr(val / RATE, symbol=RUPEE)}",
             va="bottom",
             ha="right",
             fontsize=8,
@@ -167,7 +169,8 @@ def fig_training_curves(outdir) -> str | None:
         )
 
     ax.set_xlabel("training steps")
-    ax.set_ylabel("profit per episode (GBP)")
+    ax.set_ylabel(f"profit per episode ({RUPEE})")
+    lakh_axis(ax.yaxis)
     ax.legend(loc="lower right")
     ax.set_title(
         "Masking, then tuning -- and still short of the classical policy\n"

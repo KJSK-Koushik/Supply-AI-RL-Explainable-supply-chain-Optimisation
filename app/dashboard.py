@@ -30,6 +30,7 @@ from src.config import resolve  # noqa: E402
 from src.eval.runner import EVAL_SEEDS, run_episode  # noqa: E402
 from src.llm.explainer import build_facts, explain  # noqa: E402
 from src.llm.scenario_gen import fallback_scenarios  # noqa: E402
+from src.money import RATE, RUPEE, inr  # noqa: E402
 
 st.set_page_config(page_title="SupplyAI-RL", page_icon="📦", layout="wide")
 
@@ -105,7 +106,9 @@ st.title("SupplyAI-RL — inventory decision support")
 st.caption(
     "Shadow-mode deployment: the tuned classical policy is the engine, the RL "
     "agent runs alongside as a challenger, and every decision can be explained. "
-    "Nothing here executes an order."
+    "Nothing here executes an order. "
+    f"Money is shown in rupees at 1 GBP = {RUPEE}{RATE:.0f}; the simulator works in "
+    "pounds because the data is from a UK retailer."
 )
 
 policies = load_policies()
@@ -141,11 +144,11 @@ with tab_run:
         ep = run_traced(policy_name, seed, disrupted)
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Profit (180 days)", f"£{ep['total_profit']:,.0f}")
+    c1.metric("Profit (180 days)", inr(ep["total_profit"], symbol=RUPEE))
     c2.metric("Fill rate", f"{ep['fill_rate']:.1%}")
-    c3.metric("Ordering fees", f"£{ep['ordering_cost']:,.0f}")
-    c4.metric("Stockout cost", f"£{ep['stockout_penalty']:,.0f}")
-    c5.metric("Overflow lost", f"£{ep['overflow_loss']:,.0f}")
+    c3.metric("Ordering fees", inr(ep["ordering_cost"], symbol=RUPEE))
+    c4.metric("Stockout cost", inr(ep["stockout_penalty"], symbol=RUPEE))
+    c5.metric("Overflow lost", inr(ep["overflow_loss"], symbol=RUPEE))
 
     days = ep["days"]
     left, right = st.columns([3, 2])
@@ -163,7 +166,7 @@ with tab_run:
         fig.add_trace(
             go.Scatter(
                 x=days,
-                y=np.cumsum(ep["profit_daily"]),
+                y=np.cumsum(ep["profit_daily"]) * RATE,
                 name="cumulative profit",
                 yaxis="y2",
                 line={"color": CLASSICAL, "width": 2},
@@ -184,7 +187,7 @@ with tab_run:
             title="Warehouse stock and cumulative profit",
             xaxis_title="day",
             yaxis_title="units held",
-            yaxis2={"title": "profit (£)", "overlaying": "y", "side": "right"},
+            yaxis2={"title": f"profit ({RUPEE})", "overlaying": "y", "side": "right"},
             height=380,
             margin={"l": 10, "r": 10, "t": 40, "b": 10},
             legend={"orientation": "h"},
@@ -309,13 +312,15 @@ with tab_compare:
                 }
             )
         df = pd.DataFrame(rows).sort_values("profit", ascending=False).reset_index(drop=True)
+        money = ("profit", "± std", "ordering cost", "stockout cost")
+        shown = df.assign(**{c: df[c] * RATE for c in money})
         best_c = df[df.type == "classical"].iloc[0]
         best_a = df[df.type == "RL agent"].iloc[0]
         k1, k2, k3 = st.columns(3)
-        k1.metric("Best classical", f"£{best_c.profit:,.0f}", best_c.policy)
+        k1.metric("Best classical", inr(best_c.profit, symbol=RUPEE), best_c.policy)
         k2.metric(
             "Best RL agent",
-            f"£{best_a.profit:,.0f}",
+            inr(best_a.profit, symbol=RUPEE),
             f"{best_a.profit / best_c.profit:.1%} of classical",
         )
         v = cmp.get("verdict") or {}
@@ -329,12 +334,12 @@ with tab_compare:
 
         fig = go.Figure(
             go.Bar(
-                x=df.profit,
+                x=df.profit * RATE,
                 y=df.policy,
                 orientation="h",
                 marker_color=[CLASSICAL if t == "classical" else AGENT for t in df.type],
-                error_x={"type": "data", "array": df["± std"], "color": MUTED},
-                text=[f"{p:,.0f}" for p in df.profit],
+                error_x={"type": "data", "array": df["± std"] * RATE, "color": MUTED},
+                text=[inr(p, symbol=RUPEE) for p in df.profit],
                 textposition="outside",
             )
         )
@@ -342,12 +347,12 @@ with tab_compare:
             height=420,
             margin={"l": 10, "r": 10, "t": 30, "b": 10},
             yaxis={"autorange": "reversed"},
-            xaxis_title="profit per 180-day episode (£)",
+            xaxis_title=f"profit per 180-day episode ({RUPEE})",
             title="30 held-out seeds, identical customers for every policy",
         )
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(
-            df.style.format(
+            shown.style.format(
                 {
                     "profit": "{:,.0f}",
                     "± std": "{:,.0f}",
@@ -378,18 +383,22 @@ with tab_robust:
             ]
         ).sort_values("disrupted", ascending=False)
         fig = go.Figure()
-        fig.add_trace(go.Bar(name="calm", x=rdf.policy, y=rdf.calm, marker_color=MUTED))
-        fig.add_trace(go.Bar(name="disrupted", x=rdf.policy, y=rdf.disrupted, marker_color=AGENT))
+        fig.add_trace(go.Bar(name="calm", x=rdf.policy, y=rdf.calm * RATE, marker_color=MUTED))
+        fig.add_trace(
+            go.Bar(name="disrupted", x=rdf.policy, y=rdf.disrupted * RATE, marker_color=AGENT)
+        )
         fig.update_layout(
             barmode="group",
             height=380,
             margin={"l": 10, "r": 10, "t": 30, "b": 10},
-            yaxis_title="profit (£)",
+            yaxis_title=f"profit ({RUPEE})",
             title="Calm vs disrupted",
         )
         st.plotly_chart(fig, use_container_width=True)
         st.dataframe(
-            rdf.style.format({"calm": "{:,.0f}", "disrupted": "{:,.0f}", "drop": "{:+.1f}%"}),
+            rdf.assign(calm=rdf.calm * RATE, disrupted=rdf.disrupted * RATE).style.format(
+                {"calm": "{:,.0f}", "disrupted": "{:,.0f}", "drop": "{:+.1f}%"}
+            ),
             use_container_width=True,
             hide_index=True,
         )

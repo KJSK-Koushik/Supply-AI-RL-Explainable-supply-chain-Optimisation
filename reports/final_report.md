@@ -1,367 +1,398 @@
 # SupplyAI-RL: Explainable Supply Chain Optimization
 
-**An LLM–RL decision-support system for retail inventory**
+**An AI decision-support system for retail inventory, with plain-English explanations**
 Course: 22AIE450 Reinforcement Learning — Final Report
+
+> **About the money in this report.** All amounts are in rupees (₹). The sales data comes from a UK shop, so the simulator works in pounds inside. We convert at 1 GBP = ₹105 when showing numbers. The rate is one line in `configs/display.yaml`.
 
 ---
 
 ## Abstract
 
-A retailer must decide daily, for every product, how much to order and from which supplier. This project builds a complete decision-support system for that problem: a supply chain simulator calibrated from 1,067,371 real retail transactions, a reinforcement learning agent (MaskablePPO) that chooses order quantity and supplier jointly, four properly tuned classical inventory policies as competitors, a language-model layer that explains every decision in business English and generates disruption scenarios for stress testing, and a dashboard framed as a shadow-mode deployment.
+A shop must decide every day, for every product, how much to order and from which supplier. This project builds a complete system for that decision. It has:
 
-The headline finding is honest rather than triumphant. On 30 held-out scenarios the tuned RL agent earns £75,926 per 180-day episode — **90.8% of the best classical policy's £83,624** — and beats two of the four classical methods, but the gap of £7,698 is statistically significant (paired *t* = −6.45). We know precisely why: the agent fragments orders across suppliers, paying twice the ordering fees. Action masking was worth roughly 3×; hyperparameter tuning closed 38% of the remaining gap; training on generated crises did not improve robustness, and the sweep-tuned agent turned out to be the most robust one anyway. The explainer produces grounded, complete explanations — and the evaluation shows the grounding check is not decoration: without it, a material fraction of explanations would contain a fabricated number.
+- a **simulator** (a virtual shop) built from 1,067,371 real sales records,
+- an **AI agent** (reinforcement learning, MaskablePPO) that picks the quantity and the supplier together,
+- **four classical methods** from textbooks, each tuned properly so the comparison is fair,
+- an **LLM** (language model) that explains every decision in plain English and invents crisis situations for testing,
+- a **dashboard** where a manager can run a day and ask for an explanation.
 
-Every comparison is fair by construction — same environment, same seeds, same action set, baselines tuned rather than left at textbook defaults — which is what makes the negative results meaningful.
+The main result is honest, not flattering. On 30 unseen test runs, the tuned AI earns **₹79.7 lakh** per 180 days — **90.8% of the best classical method's ₹87.8 lakh** — and beats two of the four classical methods. But the gap of ₹8.1 lakh is real and statistically significant. We know why: the AI spreads its orders across suppliers and pays twice the ordering fees.
+
+Along the way we found four things. Action masking (blocking illegal choices before the AI decides) was worth about 3×. Hyperparameter tuning closed 38% of the remaining gap. Training on crises did *not* make the AI more robust — plain tuning did more. And the LLM explainer's safety check is essential: without it, one explanation in six would contain a made-up number.
+
+Every comparison uses the same simulator, the same random customers, and the same choices. That fairness is what makes the negative results mean something.
 
 ---
 
-## 1. Introduction and motivation
+## 1. Introduction
 
-Inventory decisions carry two asymmetric errors. Order too much and capital sits in a warehouse, storage is paid for, and seasonal stock is marked down or written off. Order too little and the sale is lost permanently, because the customer buys elsewhere. Add supplier choice — cheap but slow, fast but expensive, reliable-looking but flaky — and the daily decision becomes a genuine sequential problem: today's order is next week's stock, and every product shares one warehouse.
+### 1.1 Why this problem is hard
 
-Classical policies ((s,S), EOQ with reorder point, newsvendor, forecast plus safety stock) treat each product in isolation and assume demand is well behaved. Real demand is not: in the data used here, daily demand variance is roughly 216 times the mean, where a Poisson model assumes they are equal.
+Ordering stock has two ways to go wrong, and they cost different amounts.
 
-Reinforcement learning can in principle learn what a formula cannot express — a joint ordering and sourcing policy that responds to season, volatility and supplier state. But a buyer will not act on a recommendation they cannot interpret. The project therefore pairs an RL decision-maker with an LLM that phrases each decision in business language, under a strict rule: the model states facts the simulator computed and never speculates about causes.
+- **Order too much:** money sits in the warehouse, storage costs pile up, and seasonal goods get marked down or thrown away.
+- **Order too little:** the customer buys elsewhere. The sale is gone for good.
 
-### Objectives
+Now add supplier choice. One supplier is cheap but slow. One is fast but expensive. One looks reasonable but ships only 80% of what you ordered and goes offline more often than the others. And every product shares one warehouse, so ordering a lot of product A leaves less room for product B.
 
-1. Build a supply chain simulation calibrated from real data.
-2. Train an RL agent to choose reorder quantity and supplier.
+Today's order becomes next week's stock. That makes it a **sequential decision problem**: what you do now changes what you can do later.
+
+### 1.2 Why the usual methods struggle
+
+Classical inventory rules — (s,S), EOQ with reorder point, newsvendor, forecast plus safety stock — treat each product on its own and assume demand is well-behaved. Real demand is not. In our data, daily demand varies about 216 times more than a simple statistical model (Poisson) would expect.
+
+### 1.3 Why explanation matters
+
+Reinforcement learning (RL) can learn a joint ordering-and-supplier policy that a formula cannot express. But a buyer will not act on a recommendation they cannot understand. So this project pairs the AI with a language model that puts each decision into plain sentences — under one strict rule: **the LLM only states facts the simulator computed. It never guesses at reasons.**
+
+### 1.4 Objectives
+
+1. Build a supply chain simulation from real data.
+2. Train an RL agent to choose order quantity and supplier.
 3. Use an LLM to explain each decision in business language.
 4. Use an LLM to generate demand-spike and supplier-delay scenarios.
 5. Compare the RL agent against traditional inventory policies.
 
-All five are delivered. Objective 5 says *compare*, not *win*; the comparison came back negative and is reported as such.
+All five are done. Objective 5 says *compare*, not *win*. The comparison came out against the AI, and we report it that way.
 
 ---
 
-## 2. Problem definition
+## 2. The problem, precisely
 
 | | |
 |---|---|
-| Products | 10 real SKUs from the UCI Online Retail II dataset |
-| Suppliers | 3, synthetic, spanning the cost/speed/reliability trade-off |
-| Horizon | 180 simulated days per episode, 14-day unscored warm-up |
-| Warehouse | one shared 20,000-unit store; overflow is refused at the door and written off |
-| Decision | each day, per product: one of 7 quantity buckets × 3 suppliers = 21 options |
-| Objective | maximise profit = revenue − purchase − holding − ordering fees − lost-sale penalty − overflow loss |
+| Products | 10 real products from the UCI Online Retail II dataset |
+| Suppliers | 3 (invented, because no public dataset includes supplier details) |
+| Time | 180 simulated days per run; the first 14 days are a warm-up and are not scored |
+| Warehouse | one shared store of 20,000 units; anything over that is refused and written off |
+| Decision | each day, for each product: one of 7 quantity levels × 3 suppliers = 21 options |
+| Goal | maximise profit = sales − purchase cost − storage cost − ordering fees − lost-sale penalty − overflow loss |
 
-The three suppliers, from `configs/suppliers.yaml`:
+The three suppliers:
 
-| Supplier | Unit cost | Lead time | Ships | Min order | Order fee | Outage risk |
+| Supplier | Price | Delivery time | Actually ships | Minimum order | Fee per order | Goes offline |
 |---|---|---|---|---|---|---|
-| EconoSource | baseline | 5–8 days | 90% | 100 | £20 | low |
-| RapidTrade | +35% | 1–3 days | 98% | 20 | £45 | very low |
-| MidWay Supply | +15% | 3–5 days | 80% | 50 | £30 | highest |
+| EconoSource | base | 5–8 days | 90% | 100 units | ₹2,100 | rarely |
+| RapidTrade | +35% | 1–3 days | 98% | 20 units | ₹4,725 | almost never |
+| MidWay Supply | +15% | 3–5 days | 80% | 50 units | ₹3,150 | most often |
 
-No column dominates. The cheap supplier ties up a week of demand in transit; the fast one erodes margin; the middle option ships only 80% of what is ordered and fails most often. The right answer changes with stock cover, season and volatility — which is exactly what a fixed reorder rule cannot express.
+None of them is best. The cheap one ties up a week of stock in transit. The fast one eats your margin. The middle one is unreliable. The right choice depends on how much stock you have, what season it is, and how unpredictable demand is right now — exactly the things a fixed rule cannot take into account.
 
-The action space is 21¹⁰ ≈ 1.7 × 10¹³ combinations per day, coupled in time and across products. That is the textbook definition of a sequential decision problem under uncertainty.
+With 21 options per product and 10 products, there are about **17 trillion** possible combinations each day.
 
 ---
 
 ## 3. Data
 
-### 3.1 Source and preparation
+### 3.1 Source
 
-**UCI Online Retail II** — 1,067,371 transaction lines from a UK online gift retailer, December 2009 to December 2011. Cleaning removes cancellations, returns, negative quantities and missing product codes. Transactions are aggregated to a daily panel per product. Saturdays are dropped entirely rather than zero-filled, because the retailer never traded on Saturdays and zero-filling would teach a false weekly collapse.
+**UCI Online Retail II** — 1,067,371 sales records from a UK online gift shop, December 2009 to December 2011.
 
-Ten SKUs were selected deliberately to span three demand regimes, so that no single fixed rule can serve all of them:
+**Cleaning:** cancelled orders, returns, negative quantities and missing product codes are removed. Sales are grouped into one row per product per day. Saturdays are removed entirely because the shop never traded on Saturdays; filling them with zeros would teach the model a false weekly dip.
 
-| Regime | Products | Coefficient of variation |
+**Ten products were chosen on purpose** to cover three kinds of demand:
+
+| Type | Products | How much demand varies (CV) |
 |---|---|---|
 | steady | 21212, 85123A, 85099B, 84991 | 1.02 – 1.20 |
 | moderate | 84879, 21977, 21213 | 1.29 – 1.65 |
 | bursty | 84077, 22197, 15036 | 2.09 – 2.34 |
 
-Calibration uses only data before **1 June 2011**; later data is held back.
+If all ten behaved the same, one simple rule would handle them all and there would be nothing for an AI to learn.
 
-### 3.2 A second dataset was screened and rejected
+Only data before **1 June 2011** is used to build the simulator. Later data is held back.
 
-The Kaggle "Retail Store Inventory Forecasting" dataset (2022–2024) was evaluated first. It showed no weekday effect and no seasonality — flat noise with no learnable structure. It was rejected with the evidence recorded in `reports/dataset_selection.md`. *Recent but synthetic is worse than old but real.*
+### 3.2 A newer dataset was tested and rejected
+
+We first tried the Kaggle "Retail Store Inventory Forecasting" dataset (2022–2024). It has no weekday pattern and no seasonal pattern. It is synthetic noise. We rejected it and recorded the evidence in `reports/dataset_selection.md`. **Newer but fake is worse than older but real.**
 
 ### 3.3 How the data is used
 
-The agent never sees the transaction data. Five statistical properties are extracted — mean and variance of daily demand per product, weekday factors, month factors, and the zero-day fraction — and the simulator reproduces them. Demand is generated by a Gamma-Poisson (negative binomial) process, which produces the quiet weeks and sudden spikes a plain Poisson cannot.
+The AI never sees the sales records. We measure five things from them — average daily demand per product, how much it varies, the weekday pattern, the month pattern, and how often a day has zero sales — and the simulator reproduces those. Demand is generated with a Gamma-Poisson (negative binomial) model, which produces both quiet weeks and sudden spikes the way real retail does.
 
-### 3.4 Is the demand shape stable over time?
+### 3.4 Is the data too old?
 
-Faculty raised the age of the data. The simulator does not use the data's levels (prices and volumes are configuration); it uses its *shape*. To test whether that shape is a property of the period or of retail, the two years were split into disjoint windows and the same factors fitted independently on each (`src/data/stability.py`, figure 08):
+Faculty asked whether 2009–2011 data can say anything about today. The simulator does not use the data's *prices or volumes* — those are settings. It uses the **shape** of demand. So the right question is: is that shape a feature of retail, or of that period?
+
+We split the two years into two separate halves and measured the shape in each (`src/data/stability.py`, figure 08):
 
 | Property | Year 1 vs Year 2 |
 |---|---|
-| Weekday factor | *r* = 0.87 — Tue–Thu busy, Sunday quiet, both years |
-| Month factor | *r* = 0.51 (0.64 excluding December, which is partly a window artefact) |
-| Peak month | November in both years |
-| Variance / mean | 224 and 474 — extreme burstiness in both |
+| Weekday pattern | *r* = 0.87 — Tuesday to Thursday busy, Sunday quiet, in both years |
+| Month pattern | *r* = 0.51 (0.64 if December is excluded — December is partly a data-window artefact) |
+| Busiest month | November, in both years |
+| Burstiness (variance ÷ mean) | 224 and 474 — extreme in both years |
 
-The weekly rhythm and the seasonal peak repeat; the mid-year shape does not. This is reported as found. It supports the two features the simulator leans on hardest and cannot support any claim about 2026 itself — which remains a stated limitation (§10).
+The weekly rhythm and the November peak repeat. The middle of the year does not. We report it as found. This supports the two features the simulator depends on most. It cannot say anything about 2026 itself — that stays a limitation (section 11).
 
 ---
 
 ## 4. The simulator
 
-`src/env/supply_chain_env.py` is a Gymnasium environment. Each simulated day runs five steps in a fixed order:
+`src/env/supply_chain_env.py` is a Gymnasium environment. Each day runs five steps in this order:
 
-1. **Deliveries arrive.** Stock ordered days ago lands; if the shared warehouse is full, the excess is refused and written off (already paid for).
-2. **Customers arrive.** Demand is drawn per product with weekday and month factors applied.
-3. **Sell what is held.** Shortfall becomes a lost sale with a penalty, and carries as backlog.
-4. **Place today's orders.** Ordering comes *after* demand, because a real buyer places tomorrow's order once today's sales are known.
+1. **Deliveries arrive.** Stock ordered days ago lands. If the warehouse is full, the extra is refused and the money is lost.
+2. **Customers arrive.** Demand is drawn for each product, adjusted for weekday and month.
+3. **Sell what you have.** Any shortfall is a lost sale with a penalty, and carries over as backlog.
+4. **Place today's orders.** This comes *after* demand, because a real buyer orders once they know how the day went.
 5. **Count the money.**
 
-Suppliers have triangular lead times, normally distributed fill rates, minimum order quantities, fixed per-order fees and random outages. Disruption scenarios (demand spikes, supplier delays, outages, price shocks) can be injected as validated data and never as executable content.
+Suppliers have random delivery times, random partial shipments, minimum order quantities, fixed fees per order, and random outages.
 
-Economic choices, each of which corrected an earlier error:
+Three settings each fixed an earlier mistake:
 
-- **Holding cost** 0.0015 per unit-day (~55%/year) — higher than the usual 20–30% cost-of-capital figure, deliberately, because this retailer sells seasonal gift lines that carry markdown risk. An earlier setting was 730%/year, which made stock-holding absurdly punitive.
-- **Terminal salvage** of 60% on leftover stock — the earlier total write-off was an artefact of the 180-day horizon.
-- **One shared warehouse** rather than per-product limits — per-product capacity had made "order the maximum" trivially optimal, leaving no interior optimum to learn.
+- **Storage cost** is 0.15% of the item's cost per day (about 55% per year). That is high on purpose, because these are seasonal gift items that lose value. An earlier setting was 730% per year, which made holding any stock absurdly expensive.
+- **Leftover stock at the end** is worth 60% of its cost. An earlier version treated it as a total loss, which was only an artefact of stopping at 180 days.
+- **One shared warehouse** instead of a limit per product. With per-product limits, "always order the maximum" was the best strategy, and there was nothing to learn.
 
-A demo (`scripts/demo_simulator.py`) confirms the reward function is sane: crude but sensible policies earn ~£26k; never ordering loses £368k; ordering the maximum achieves the best fill rate of any policy and still loses £69k. If reasonable had not beaten flailing, every later result would be meaningless.
+A demo (`scripts/demo_simulator.py`) confirms the simulator rewards sensible behaviour: simple reasonable rules earn about ₹27 lakh; never ordering loses ₹3.9 crore; always ordering the maximum gets the best service level of any method and still loses ₹73 lakh. If sensible had not beaten silly, nothing built on top would mean anything.
 
 ---
 
 ## 5. Methods
 
-### 5.1 The RL formulation
+### 5.1 How the AI sees the problem
 
 | | |
 |---|---|
-| **State** (88 values) | per product: stock, in transit, days of cover, 7-day mean, 7-day volatility, trend, backlog; weekday one-hot; month as sin/cos; per supplier: available, expected lead time, recent fill rate |
-| **Action** | MultiDiscrete over 10 products, each a joint choice among 21 (quantity bucket × supplier) |
-| **Reward** | that day's profit, scaled by 0.001 and clipped to ±10; zero during warm-up |
-| **Episode** | 180 days |
+| **What it sees** (88 numbers) | for each product: stock on hand, stock on the way, days of cover, last-7-day average demand, how much demand is varying, trend, backlog; plus the weekday, the time of year, and each supplier's availability, delivery time and recent reliability |
+| **What it decides** | for each of the 10 products, one of 21 choices (quantity level × supplier) |
+| **What it is rewarded for** | that day's profit, scaled down and clipped; zero during the 14-day warm-up |
+| **One run** | 180 days |
 
-The action is encoded as one *joint* choice per product rather than two separate ones. That is both 2.8× faster (PPO builds one categorical distribution per action dimension) and the better model: how much to order and who to order from are not independent decisions.
+The quantity and supplier are chosen *together* as one option, not as two separate choices. That is 2.8× faster to train and it matches how the decision really works: ordering 8× normal demand only makes sense from a supplier who can actually deliver it.
 
-### 5.2 Algorithm
+### 5.2 The algorithm
 
-**MaskablePPO** (sb3-contrib) — PPO with invalid-action masking. Suppliers in outage and orders exceeding free warehouse space are blocked before the policy chooses. MLP policy, two hidden layers, CPU training.
+**MaskablePPO** — PPO (Proximal Policy Optimization) with **action masking**. Before the AI chooses, illegal options are blocked: suppliers that are offline, and orders too big for the warehouse. The network is small (two layers of 128 or 256 units) and trains on CPU.
 
-Masking was the single largest lever found: best training-eval profit rose from 23,717 (plain PPO) to 72,740 (masked), roughly 3×. Without it, the agent spends most of its training discovering that certain actions are pointless.
+Masking was the single biggest improvement in the project. Without it, the AI's best score was ₹24.9 lakh. With it, ₹76.4 lakh — about 3×. Without masking, the AI wastes most of its training discovering that some choices are pointless.
 
-### 5.3 Classical baselines, tuned
+### 5.3 The classical methods, tuned
 
-Four textbook policies, each grid-searched on 12 tuning seeds (100–111) disjoint from every evaluation seed:
+Four textbook methods, each tuned by grid search on 12 tuning runs (seeds 100–111) that are never used for evaluation:
 
-| Policy | Tuned parameters |
+| Method | Tuned settings |
 |---|---|
-| (s,S) | s = 11 days, S = 16 days, supplier by urgency |
-| EOQ + reorder point | ROP = 8 days, safety factor 1.6, supplier by urgency |
+| (s,S) | reorder when stock covers under 11 days, order up to 16 days |
+| EOQ + reorder point | reorder at 8 days of cover, safety factor 1.6 |
 | newsvendor | 3-day horizon, cheapest supplier |
-| forecast + safety stock | 1-day window, z = 1.28, review every 4 days, cheapest supplier |
+| forecast + safety stock | 1-day forecast window, z = 1.28, review every 4 days, cheapest supplier |
 
-Tuning mattered: widening the grid lifted the best policy from 66,395 to 84,920 during tuning. Boundary optima were detected automatically and the grid extended until the optimum was interior. Beating an untuned baseline would have proved nothing.
+Tuning mattered a lot: widening the search lifted the best method from ₹69.7 lakh to ₹89.2 lakh. If we had left the classical methods at textbook defaults, the AI would have "won" — and it would have meant nothing.
 
-Every baseline chooses from the same 21 options per product as the agent (`Policy.quantise` snaps to the same buckets), so no policy has a finer control granularity than another.
+Every classical method picks from the same 21 options per product as the AI, so no method has finer control than another.
 
-### 5.4 Evaluation protocol
+### 5.4 How the evaluation stays fair
 
-Three disjoint seed families:
+Three separate groups of random seeds:
 
-| Seeds | Purpose |
+| Seeds | Used for |
 |---|---|
-| 100–111 | tuning the classical baselines |
-| 900–905 | selecting RL checkpoints during training |
-| **500–529** | **reporting — never used for any selection** |
+| 100–111 | tuning the classical methods |
+| 900–905 | picking the best checkpoint during AI training |
+| **500–529** | **reporting results — never used to choose anything** |
 
-Every reported number comes from the 30 reporting seeds. Every policy faces identical customers and identical delivery delays on each seed, so comparisons are **paired**: the test statistic is computed on per-seed differences, which removes the episode-to-episode variance that dominates the raw standard deviations.
+Every number in this report comes from the 30 reporting seeds. Every method faces the same customers and the same delivery delays on each seed. So comparisons are **paired**: we look at the difference on each seed, which removes the run-to-run randomness that would otherwise hide a real effect.
 
-### 5.5 Hyperparameter sweep
+### 5.5 Hyperparameter search
 
-Eight configurations, random search over learning rate {5e-5, 1e-4, 3e-4}, entropy {0.001–0.05}, γ {0.995, 0.999}, rollout length {512, 1024} and network {128×128, 256×256}, with successive halving: 250k-step screening, then the two survivors trained to 2M steps on Kaggle (~4.8 hours).
+Eight settings were tried, with a short 250,000-step trial each, and the best two were trained fully to 2 million steps on Kaggle (about 4.8 hours).
 
-The winner used the **lowest** learning rate offered (5e-5) and the **larger** network. This confirms the diagnosis behind the search: the first two runs were oscillating because they learned too fast, not because they lacked capacity.
+The winner used the **lowest** learning rate on offer (5e-5) and the **larger** network. That confirmed our diagnosis: the earlier runs were unstable because they learned too fast, not because the network was too small.
 
 ---
 
 ## 6. The LLM explainer
 
-`src/llm/explainer.py`. The design rule: **the model is never asked why a decision was made.** The agent's real reason is a policy network; any "because" a language model supplies is a plausible story, not the cause, and presenting it as the cause would make the explainability claim false. So the model does presentation, and the numbers stay the simulator's.
+`src/llm/explainer.py`
 
-The explainer receives a fact dictionary — stock, in-transit, days of cover, recent demand, order placed, supplier, lead time, fill rate — and returns two or three sentences. A post-check extracts every number in the output and verifies it traces to a supplied fact (tolerating thousands separators and rounding). Output containing anything else is discarded and a deterministic template is used instead.
+**The rule:** the LLM is never asked *why* a decision was made. The AI's real reason is a neural network. Any "because" the LLM wrote would be a plausible story, not the cause — and presenting a story as the cause would make the word "explainable" false.
 
-Models are OpenRouter free-tier: `google/gemma-4-31b-it`, `z-ai/glm-5.2`, `nvidia/nemotron-3-ultra-550b-a55b`, tried in that order with retry and backoff, because free endpoints rate-limit constantly. With no key, or when every model refuses, the template takes over and says so.
+So the LLM does presentation only. It receives facts the simulator computed — stock, orders on the way, days of cover, recent demand, what was ordered, from whom, that supplier's delivery time and reliability — and writes two or three sentences. Then we **check every number in its output** against those facts. If any number was invented, the output is thrown away and a fixed template is used instead.
+
+Models are free-tier via OpenRouter: `google/gemma-4-31b-it`, `z-ai/glm-5.2`, `nvidia/nemotron-3-ultra-550b-a55b`, tried in that order with retries, because free models rate-limit constantly. With no key, or if every model refuses, the template takes over.
 
 A real example (nemotron, day 44):
 
 > Product 21212 (Pack Of 72 Retrospot Cake Cases) holds 2,438 units in stock with nothing on order, providing 14.5 days of cover at the typical daily demand of 169 units. Recent demand has averaged 89 units over the last seven days, below its usual level, and there was no unmet demand yesterday. No order was placed today.
 
-### 6.1 Evaluation
+### 6.1 Measuring the explainer
 
-`src/eval/explainer_eval.py` scores 30 real decisions from the tuned baseline, spread across six days and all ten products:
+`src/eval/explainer_eval.py` scored 30 real decisions (6 days × 10 products):
 
-- **grounded** — the raw model output contains only numbers the simulator produced
-- **complete** — it states the product, stock level, and (when ordered) quantity and supplier
-- **explanation accuracy** — both at once
-- **delivered accuracy** — what the user actually sees, after the guard replaces ungrounded output with the template
-
-| Metric | Value |
+| Measure | Result |
 |---|---|
-| Decisions evaluated | 30 (6 days × 10 products, tuned baseline, seed 500) |
-| LLM reachable | 100% of calls (after retries; models used: gemma-4-31b-it, nemotron-3-ultra) |
-| **Grounding rate** — raw model output contained only real numbers | **83%** (25 / 30) |
-| Completeness — required facts stated | 100% |
-| **Raw model accuracy** — grounded *and* complete, before the guard | **83%** |
-| **Delivered accuracy** — what the user saw, after the guard | **100%** |
-| Length | 2.9 sentences, 58 words |
+| LLM reachable | 100% of calls (after retries) |
+| **Grounded** — raw LLM output used only real numbers | **83%** (25 of 30) |
+| Complete — stated product, stock, and order details | 100% |
+| **Raw model accuracy** — grounded *and* complete, before our check | **83%** |
+| **Delivered accuracy** — what the user actually saw, after our check | **100%** |
+| Length | 2.9 sentences, 58 words on average |
 
-**Five of thirty model outputs contained a number the simulator never produced.** The grounding check caught all five and replaced them with the template, so every explanation actually delivered was correct and complete.
+**Five of thirty LLM outputs contained a number the simulator never produced.** They read fluently and confidently. A buyer would not have noticed. The check caught all five and replaced them with the template, so every explanation the user saw was correct and complete.
 
-This is the finding of the explainer evaluation, and it is a better one than "the LLM is accurate" would have been: **the guard is load-bearing.** Without it, one explanation in six would carry a fabricated figure — fluent, confident, and wrong in exactly the way a buyer would not notice. With it, none do. An explainability layer that trusted the model would have been quietly unsafe; this one is measured to be safe.
+This is the real finding of the explainer work: **the safety check is essential.** Without it, one explanation in six would carry a made-up figure. With it, none do. An explainer that trusted the model would have been quietly unsafe. This one is measured to be safe.
 
-The two accuracies are reported separately on purpose. An earlier version of the metric scored only outputs that had already passed the guard, and so reported 100% for a model that invented numbers 17% of the time. That number was true and useless; these two are the ones that mean something.
+We report both accuracies deliberately. An earlier version of our metric only scored outputs that had already passed the check, and so reported "100%" for a model that made things up 17% of the time. That number was true and useless. These two are the ones that matter.
 
 ---
 
-## 7. The LLM scenario generator
+## 7. The LLM crisis generator
 
-`src/llm/scenario_gen.py`. The value of an LLM here is imagination, not authority. Hand-written stress tests contain the failures their author thought of; asked for "a realistic 2026 retail supply chain crisis", the model returned:
+`src/llm/scenario_gen.py`
 
-| Days | Event | Cause it named |
+The LLM's value here is imagination. Crisis tests written by hand contain only the failures the author thought of. Asked for "a realistic 2026 retail supply chain crisis", the LLM wrote:
+
+| Days | Event | Cause it gave |
 |---|---|---|
 | 45–65 | demand 3× on four products | viral social media trend |
 | 50–63 | supplier 2 offline | cyberattack on mid-tier supplier |
-| 55–72 | supplier 0 + 6 days | port congestion at major hub |
+| 55–72 | supplier 0 delayed by 6 days | port congestion at major hub |
 | 60–84 | costs 1.6× | raw material shortage |
 
-They cascade — the outage lands inside the spike, the delay overlaps both — which is the case a single-disruption test never reaches. That is the only thing taken from the model. Every field is parsed, type-checked, range-clamped and bounds-checked against the real product and supplier counts before reaching the simulator. Given six deliberately hostile inputs — an invented scenario type, supplier 9 on a three-supplier world, product 14 on a ten-product world, a 999-day duration, an 87× multiplier, a cost multiplier of "lots" — three survive, none as written. Out-of-range product indices are dropped rather than wrapped, because 14 mod 10 would silently redirect a crisis onto a product the model never named. Windows are repositioned to land inside the episode; a clamp on start day alone left "day 400 for 30 days" as a stress test that ran for ten days and was silently mostly absent.
+These overlap. The supplier goes down *during* the demand spike; the delay overlaps both. That combination is what really hurts, and a single-event test never reaches it.
 
-### 7.1 Stress-test result
+**Nothing the LLM writes is trusted.** Every field is checked: the scenario type must be one we know; supplier and product numbers must exist; values are clamped to safe ranges; scenarios are moved so they fall inside the 180-day run. We fed it six deliberately broken inputs — an invented scenario type, supplier 9 on a 3-supplier world, product 14 on a 10-product world, a 999-day duration, an 87× demand multiplier, and a cost multiplier of "lots". Three survived, none as written. Out-of-range product numbers are dropped rather than wrapped, because 14 mod 10 would silently move the crisis to product 4.
 
-Under the same hand-written disruption, on five seeds:
+### 7.1 First stress-test result
 
-| Policy | Calm | Disrupted | Change |
+Under the same hand-written crisis, on five seeds:
+
+| Method | Calm | Crisis | Change |
 |---|---|---|---|
-| forecast + safety stock | 84,039 | 72,935 | −13% |
-| MaskablePPO, untuned | 70,206 | 50,454 | **−28%** |
+| forecast + safety stock | ₹88.2 lakh | ₹76.6 lakh | −13% |
+| AI, untuned | ₹73.7 lakh | ₹53.0 lakh | **−28%** |
 
-The agent degrades more than twice as badly on conditions it never trained on. This motivated Phase 9.
+The AI fell more than twice as hard. This is what motivated Phase 9.
 
 ---
 
 ## 8. Curriculum training
 
-`src/agents/curriculum.py`. A pool of 16 disruption sets was generated once from 19 LLM-produced scenarios, cached, and split 10/6. The curriculum agent draws a random training set at every episode reset and is scored on the 6 held-out sets it never saw. Hyperparameters, seed and step count match the untuned agent (`masked_1m`) exactly, so the curriculum is the only variable.
+`src/agents/curriculum.py`
 
-The split is the methodology, not a detail: training and testing on the same crises would show a large improvement while measuring memorisation. (The test suite once overwrote the live experiment's pool with a throwaway one; the cache path is now injectable and tests cannot touch the real experiment.)
+We generated a pool of 16 crisis sets from 19 LLM-written scenarios, saved it, and split it 10/6. The AI trained on a random set from the 10 at the start of every run, and was tested on the 6 it had never seen. Its settings, seed and training length exactly match the untuned AI, so the crisis training is the only difference.
+
+**The split is the whole method.** Training and testing on the same crises would show a big improvement that only measured memorisation. (Our own test suite once overwrote the saved pool by accident; the cache path is now injectable so tests cannot touch the real experiment.)
 
 ---
 
 ## 9. Results
 
-### 9.1 Main comparison — 30 held-out seeds
+### 9.1 Main comparison — 30 unseen runs
 
-| Policy | Profit (£) | ± std | Fill rate | Ordering fees | Stockout cost | Overflow |
+| Method | Profit | ± spread | Fill rate | Ordering fees | Stockout cost | Overflow |
 |---|---|---|---|---|---|---|
-| forecast + safety stock | **83,624** | 4,389 | 97.9% | 2,729 | 5,821 | 1,204 |
-| newsvendor | 82,049 | 4,222 | 98.0% | 3,275 | 7,057 | 242 |
-| **RL agent, tuned, 2M steps** | **75,926** | 5,205 | 95.1% | 5,522 | 8,726 | **0** |
-| RL agent, 2nd config, 2M | 73,331 | 5,163 | 93.6% | 6,774 | 9,998 | 0 |
-| EOQ + reorder point | 72,302 | 7,028 | 96.8% | 2,626 | 9,988 | 3,273 |
-| RL agent, untuned, 1M | 71,227 | 5,517 | 94.3% | 7,068 | 10,515 | 0 |
-| (s,S) | 70,365 | 6,782 | 94.9% | 2,905 | 15,677 | 406 |
-| constant order (control) | 50,751 | 12,723 | 92.3% | 3,334 | 27,644 | 1,606 |
-| PPO, no masking, 1M | 22,566 | 8,560 | 94.8% | 13,988 | 10,805 | 16,796 |
+| forecast + safety stock | **₹87.8 lakh** | ₹4.6 lakh | 97.9% | ₹2.9 lakh | ₹6.1 lakh | ₹1.3 lakh |
+| newsvendor | ₹86.2 lakh | ₹4.4 lakh | 98.0% | ₹3.4 lakh | ₹7.4 lakh | ₹0.3 lakh |
+| **AI, tuned, 2M steps** | **₹79.7 lakh** | ₹5.5 lakh | 95.1% | ₹5.8 lakh | ₹9.2 lakh | **₹0** |
+| AI, 2nd config, 2M steps | ₹77.0 lakh | ₹5.4 lakh | 93.6% | ₹7.1 lakh | ₹10.5 lakh | ₹0 |
+| EOQ + reorder point | ₹75.9 lakh | ₹7.4 lakh | 96.8% | ₹2.8 lakh | ₹10.5 lakh | ₹3.4 lakh |
+| AI, untuned, 1M steps | ₹74.8 lakh | ₹5.8 lakh | 94.3% | ₹7.4 lakh | ₹11.0 lakh | ₹0 |
+| (s,S) | ₹73.9 lakh | ₹7.1 lakh | 94.9% | ₹3.1 lakh | ₹16.5 lakh | ₹0.4 lakh |
+| constant order (control) | ₹53.3 lakh | ₹13.4 lakh | 92.3% | ₹3.5 lakh | ₹29.0 lakh | ₹1.7 lakh |
+| PPO, no masking | ₹23.7 lakh | ₹9.0 lakh | 94.8% | ₹14.7 lakh | ₹11.3 lakh | ₹17.6 lakh |
 
-**The tuned classical policy beats the tuned RL agent by £7,698 per episode** (paired *t* = −6.45, *n* = 30, *p* < 0.001). The agent reaches **90.8%** of the classical policy's profit and beats two of the four classical methods.
+**The best classical method beats the tuned AI by ₹8.1 lakh per run** (paired *t* = −6.45, *n* = 30, *p* < 0.001). The AI reaches **90.8%** of the classical profit and beats two of the four classical methods.
 
-Where the gap sits:
+Where the gap comes from:
 
-- **Fill rate** 95.1% vs 97.9% — the agent runs out more often, costing ~£2,900 in extra stockout penalties.
-- **Ordering fees** £5,522 vs £2,729 — the agent fragments orders. In one traced episode it placed 719 orders across all three suppliers against the baseline's 323, almost all with the cheap one (figure 07, panel D).
-- **Overflow** — the agents are the *only* policies with zero overflow loss. They learned the shared-warehouse constraint properly; every classical policy wastes some.
+- **Fill rate** 95.1% vs 97.9% — the AI runs out more often, costing about ₹3 lakh more in lost-sale penalties.
+- **Ordering fees** ₹5.8 lakh vs ₹2.9 lakh — the AI spreads orders across suppliers. In one traced run it placed 719 orders; the classical method placed 323, almost all with the cheap supplier (figure 07, panel D).
+- **Overflow** — the AI versions are the *only* methods with zero overflow loss. They learned the shared-warehouse rule properly. Every classical method wastes some.
 
-### 9.2 What each intervention was worth
+### 9.2 What each step was worth
 
-| Step | Training-eval profit | Held-out profit | Gap to classical |
+| Step | Training score | Test score | Gap to classical |
 |---|---|---|---|
-| PPO, no masking | 23,717 | 22,566 | −61,058 |
-| + action masking | 72,740 | 71,227 | −12,397 |
-| + hyperparameter tuning, 2M steps | 82,105 | 75,926 | **−7,698** |
+| PPO, no masking | ₹24.9 lakh | ₹23.7 lakh | −₹64.1 lakh |
+| + action masking | ₹76.4 lakh | ₹74.8 lakh | −₹13.0 lakh |
+| + tuning, 2M steps | ₹86.2 lakh | ₹79.7 lakh | **−₹8.1 lakh** |
 
-Masking ≈ 3×; tuning closed 38% of what remained.
+Masking ≈ 3×. Tuning closed 38% of what was left.
 
-### 9.3 Robustness — 6 held-out LLM-generated crises
+### 9.3 Robustness — 6 unseen LLM-generated crises
 
-| Policy | Calm | Disrupted | Drop |
+| Method | Calm | Crisis | Drop |
 |---|---|---|---|
-| forecast + safety stock | 83,282 | 51,175 | −38.6% |
-| **RL agent, tuned (no curriculum)** | 76,567 | **48,244** | **−37.0%** |
-| RL agent, untuned (control) | 70,279 | 36,925 | −47.5% |
-| RL agent, curriculum-trained | 62,904 | 37,071 | −41.1% |
+| forecast + safety stock | ₹87.4 lakh | ₹53.7 lakh | −38.6% |
+| **AI, tuned (no crisis training)** | ₹80.4 lakh | **₹50.7 lakh** | **−37.0%** |
+| AI, untuned (control) | ₹73.8 lakh | ₹38.8 lakh | −47.5% |
+| AI, trained on crises | ₹66.0 lakh | ₹38.9 lakh | −41.1% |
 
-**Curriculum training did not work.** Its smaller percentage drop is the trap the evaluation was built to expose: the drop is smaller because there is less left to lose. Absolute disrupted profit is 37,071 against the control's 36,925 — a 0.4% difference inside noise — bought by giving up 7,375 of calm performance. Paired *t* = +1.69, not significant.
+**Crisis training did not work.** The crisis-trained AI's smaller percentage drop is misleading — it drops less because it has less to lose. Under crisis it earns ₹38.9 lakh against the control's ₹38.8 lakh, a 0.4% difference that is inside the noise, and it gave up ₹7.7 lakh of calm profit to get there. Paired *t* = +1.69, not significant.
 
-The useful finding sits beside it: **hyperparameter tuning improved robustness more than training on crises did.** The tuned agent never saw a disruption during training and has both the highest disrupted profit of any agent and the smallest drop.
+The useful result sits beside it: **plain hyperparameter tuning made the AI more robust than crisis training did.** The tuned AI never saw a crisis during training, yet it has the highest crisis profit and the smallest drop of all the AI versions.
 
-These drops are larger than in §7.1 because the six held-out LLM sets are harsher than the three hand-written ones.
+The drops here are bigger than in section 7.1 because the six LLM-generated crises are harsher than the three hand-written ones.
 
 ### 9.4 Figures
 
 | | |
 |---|---|
-| 01–04 | dataset screening, selected products, seasonality factors, demand regimes |
-| 05 | policy comparison with error bars |
+| 01–04 | dataset screening, chosen products, seasonal factors, demand types |
+| 05 | all methods compared, with error bars |
 | 06 | training curves: no masking → masking → tuning, against the classical line |
-| 07 | one episode inside the simulator: stock vs demand, warehouse fill, cumulative profit, supplier mix |
-| 08 | pattern stability across two independent years |
+| 07 | one run inside the simulator: stock vs demand, warehouse fill, profit, supplier mix |
+| 08 | pattern stability across two separate years |
 
-All regenerate from committed result files (`python -m src.eval.result_figures`, `trace_figures`, `src.data.stability`).
+All regenerate from the saved result files.
 
 ---
 
 ## 10. Discussion
 
-**Why the agent loses.** Its state contains nothing about its own ordering behaviour — no days-since-last-order, no running fee total, no last-supplier. It pays double the ordering fees and has no observation that could tell it so. This is an observability gap, not a tuning failure, and it is the most promising avenue left untried: three extra state features would give the agent access to the thing it is demonstrably bad at.
+**Why the AI loses.** Its 88 inputs contain nothing about its own ordering history — no "days since I last ordered this", no running total of fees, no "which supplier did I use last time". It pays double the ordering fees and has no way to see that it is doing so. This is a gap in what the AI can observe, not a tuning problem. Adding three inputs per product is the most promising thing left untried.
 
-**Why the negative results are worth having.** Each was produced by an experiment designed so that a positive result would have meant something. The baselines were tuned; the seeds were disjoint; the curriculum was evaluated on crises the agent never saw; the percentage drop was reported beside the absolute one so that "less to lose" could not masquerade as robustness. A project that beat a deliberately weak baseline would have reported success and learned nothing.
+**Why the negative results are worth having.** Each one came from an experiment designed so that a positive result would have meant something. The classical methods were tuned. The test seeds were separate. The crisis-trained AI was tested on crises it never saw. The percentage drop was shown next to the absolute profit so "less to lose" could not pass for robustness. A project that beat a deliberately weak baseline would have claimed success and learned nothing.
 
-**What the explainer is and is not.** It is an accurate, checked restatement of computed facts. It is not an account of the policy network's reasoning, and the project does not claim it is. That distinction is the difference between explainability and confabulation.
+**What the explainer is, and is not.** It is an accurate, checked restatement of computed facts. It is not an account of the neural network's reasoning, and we do not claim it is. That difference is the difference between explanation and invention.
 
 ---
 
 ## 11. Limitations
 
-- **Data age.** Calibrated on 2009–2011 UK retail data; currency values are of that period. The demand *shape* was shown stable across the two years available (§3.4); nothing here can speak to 2026 directly, and real recent SKU-level retail data is not public.
-- **Synthetic suppliers.** Lead times, fill rates and fees are hand-authored to span the literature's trade-off; no public dataset contains them.
-- **Equal-steps comparison in Phase 9.** The curriculum agent faced a harder distribution with the same budget; part of its shortfall may be undertraining. Equal-convergence is a different experiment.
-- **Explainer sample size.** 30 decisions, one policy, one seed.
-- **Single retailer, ten products.** Generalisation to other categories is untested.
+- **Data age.** The data is 2009–2011 UK retail; money values are of that period (converted to rupees at a fixed rate). We showed the demand *shape* is stable across the two years we have (section 3.4). Nothing here can speak to 2026 directly. Real, recent, product-level retail sales data is not public.
+- **Invented suppliers.** Delivery times, reliability and fees are hand-set to span the standard trade-off. No public dataset has them.
+- **Equal training time in Phase 9.** The crisis-trained AI faced a harder task with the same budget, so part of its weaker result may be under-training rather than the method failing.
+- **Explainer sample.** 30 decisions, one method, one seed.
+- **One shop, ten products.** Other product categories are untested.
 
 ---
 
-## 12. Toward a usable product
+## 12. Toward a real product
 
-The RL agent would not be deployed today: it earns less than a simpler method and is not more robust. The honest product architecture — which the dashboard (`app/dashboard.py`) already implements — is:
+The AI should not be deployed today. It earns less than a simpler method and is not more robust. The honest way to use what we built — which the dashboard already does — is:
 
 ```
-decision engine   tuned forecast + safety stock
-challenger        RL agent, running in shadow, logged and scored but not acting
-explanation       LLM layer on whichever decision is shown, grounding-checked
-stress testing    LLM scenario generator
-interface         recommend-only dashboard
+decision engine    the tuned classical method (what a buyer would actually run)
+challenger         the AI, running alongside, logged and scored but not acting
+explanation        the LLM layer, on whichever decision is shown, always checked
+stress testing     the LLM crisis generator
+interface          a recommend-only dashboard
 ```
 
-When the challenger consistently beats the incumbent on live data, it is promoted. That is how ML systems actually reach operations. Missing for real use: cold-start handling for new products, order-value guardrails, an audit trail, a live data feed, and a confidence signal for when to defer to a human.
+When the challenger beats the engine consistently on live data, it gets promoted. That is how AI systems really reach operations. Still missing for real use: handling brand-new products with no history, order-value limits, an audit trail, a live data feed, and a signal for when the system is unsure and a human should decide.
 
 ---
 
-## 13. Reproducibility
+## 13. Reproducing everything
 
 ```bash
 python -m pytest tests/ -q                    # 133 tests
-python -m src.data.run_pipeline               # rebuild calibration from raw data
-python -m src.agents.tune_baselines           # grid-search the classical policies
-python -m src.agents.train_ppo --name run     # train an agent
-python -m src.eval.compare                    # held-out comparison, paired test
-python -m src.eval.robustness                 # calm vs disrupted
+python -m src.data.run_pipeline               # rebuild the simulator settings from raw data
+python -m src.agents.tune_baselines           # tune the classical methods
+python -m src.agents.train_ppo --name run     # train an AI
+python -m src.eval.compare                    # main comparison
+python -m src.eval.robustness                 # calm vs crisis
 python -m src.eval.explainer_eval             # explanation accuracy
-python -m src.data.stability                  # pattern stability
+python -m src.data.stability                  # is the pattern stable?
 streamlit run app/dashboard.py
 ```
 
-CI runs lint, format and the test suite on every push. The Kaggle sweep notebook is in `kaggle/`. Every result file in `results/` is committed and every figure regenerates from them.
+CI runs lint and all tests on every push. The Kaggle notebook is in `kaggle/`. Every result file is committed; every figure regenerates from them.
 
 ---
 

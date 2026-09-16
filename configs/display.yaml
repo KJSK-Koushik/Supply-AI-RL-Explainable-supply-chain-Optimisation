@@ -1,0 +1,8 @@
+# How money is SHOWN. The simulator itself works in GBP, because the dataset is
+# a UK retailer and every price in it is in pounds. Changing this file changes
+# labels and displayed values only; no result file is affected.
+currency: "INR"
+symbol: "\u20b9"
+# Approximate rate, stated rather than hidden. Change it here and every figure,
+# dashboard tile and report number follows.
+gbp_to_inr: 105
