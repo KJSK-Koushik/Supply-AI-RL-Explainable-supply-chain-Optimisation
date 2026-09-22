@@ -107,11 +107,11 @@ The useful finding: **ordinary hyperparameter tuning made the AI more robust tha
 | 5 | Fair evaluation | done |
 | 6 | LLM explainer, with safety check | done |
 | 7 | LLM crisis generator | done |
-| 8 | Dashboard | done — `streamlit run app/dashboard.py` |
+| 8 | Dashboard | done — `streamlit run app/dashboard.py` (design: cream canvas, Inter, colour-coded cards; `app/theme.py`) |
 | 9 | Curriculum training | done — did not improve robustness |
 | 10 | Final report | done — [reports/final_report.md](reports/final_report.md) |
 
-**133 tests pass.** CI runs on every push.
+**137 tests.** All pass; two call the live LLM and are skipped without an API key. CI runs on every push.
 
 ---
 
@@ -204,13 +204,14 @@ The LLM parts need an OpenRouter key in `.env`. Copy `.env.example` to `.env` an
 
 ```
 configs/     all settings (data, simulator, suppliers, LLM, display currency)
+.streamlit/  dashboard theme tokens (colours, type, radius)
 src/data/    loading, cleaning, calibration, stability check
 src/env/     the simulator
 src/agents/  RL training, classical policies, curriculum
 src/eval/    evaluation, comparison, robustness, explainer evaluation, figures
 src/llm/     explainer and crisis generator
-app/         Streamlit dashboard
-tests/       133 tests
+app/         Streamlit dashboard and its visual theme
+tests/       137 tests
 reports/     final report, dataset selection, presentation deck
 results/     every result file and figure; all regenerate from these
 ```

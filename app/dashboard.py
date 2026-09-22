@@ -10,6 +10,8 @@ executes anything -- it recommends and explains.
 
 Everything shown comes from a real episode run on demand, or from the stored
 result files. No number here is typed in.
+
+Visual language: app/theme.py and .streamlit/config.toml.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from app import theme  # noqa: E402
 from src.config import resolve  # noqa: E402
 from src.eval.runner import EVAL_SEEDS, run_episode  # noqa: E402
 from src.llm.explainer import build_facts, explain  # noqa: E402
@@ -33,10 +36,32 @@ from src.llm.scenario_gen import fallback_scenarios  # noqa: E402
 from src.money import RATE, RUPEE, inr  # noqa: E402
 
 st.set_page_config(page_title="SupplyAI-RL", page_icon="📦", layout="wide")
+theme.inject_css()
 
-CLASSICAL = "#2c7a4b"
-AGENT = "#c0392b"
-MUTED = "#7f8c8d"
+LAKH = 1e5
+SUPPLIERS = ["EconoSource<br>cheap, slow", "RapidTrade<br>fast, dear", "MidWay<br>unreliable"]
+
+# Result files name runs after the experiment, not the reader. Display only:
+# the result files themselves are never renamed.
+PRETTY = {
+    "forecast+SS": "forecast + safety stock",
+    "forecast+SS (classical)": "forecast + safety stock",
+    "EOQ+ROP": "EOQ + reorder point",
+    "(s,S)": "(s, S) policy",
+    "constant": "constant order (control)",
+    "kaggle_full01 (masked)": "RL agent, tuned (2M)",
+    "kaggle_full01": "RL agent, tuned (2M)",
+    "kaggle_full00 (masked)": "RL agent, 2nd config (2M)",
+    "kaggle_full00": "RL agent, 2nd config (2M)",
+    "masked_1m (masked)": "RL agent, untuned (1M)",
+    "masked_1m": "RL agent, untuned (1M)",
+    "baseline_1m": "RL agent, no masking (1M)",
+    "curriculum_1m": "RL agent, curriculum (1M)",
+}
+
+
+def pretty(name: str) -> str:
+    return PRETTY.get(name, name)
 
 
 # ------------------------------------------------------------------ loading
@@ -100,15 +125,41 @@ def load_json(path: str):
         return json.load(fh)
 
 
+def crisis_shading(fig: go.Figure, days: list, active: list) -> None:
+    crisis_days = [d for d, a in zip(days, active, strict=False) if a]
+    if crisis_days:
+        fig.add_vrect(
+            x0=min(crisis_days),
+            x1=max(crisis_days),
+            fillcolor=theme.CORAL,
+            opacity=0.10,
+            line_width=0,
+            annotation_text="disruption active",
+            annotation_position="top left",
+            annotation_font={"color": theme.MUTED, "size": 12},
+        )
+
+
 # --------------------------------------------------------------------- page
 
-st.title("SupplyAI-RL — inventory decision support")
-st.caption(
-    "Shadow-mode deployment: the tuned classical policy is the engine, the RL "
-    "agent runs alongside as a challenger, and every decision can be explained. "
-    "Nothing here executes an order. "
-    f"Money is shown in rupees at 1 GBP = {RUPEE}{RATE:.0f}; the simulator works in "
-    "pounds because the data is from a UK retailer."
+theme.hero(
+    kicker="SupplyAI-RL · shadow mode",
+    title="Order the right stock, and see why.",
+    sub=(
+        "The tuned classical policy is the engine. The RL agent runs alongside as a "
+        "challenger. Every decision can be explained in plain English. Nothing here "
+        "places an order."
+    ),
+    aside_title="How to read this page",
+    aside=[
+        (
+            "Engine",
+            "forecast + safety stock — the best classical policy, the one a buyer would run",
+        ),
+        ("Challenger", "MaskablePPO agent, tuned on Kaggle — scored, never in charge"),
+        ("Explanation", "an LLM phrases the facts; every number is checked before you see it"),
+        ("Money", f"rupees at 1 GBP = {RUPEE}{RATE:.0f}; the data is from a UK shop"),
+    ],
 )
 
 policies = load_policies()
@@ -143,56 +194,65 @@ with tab_run:
     with st.spinner("Simulating 180 days…"):
         ep = run_traced(policy_name, seed, disrupted)
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Profit (180 days)", inr(ep["total_profit"], symbol=RUPEE))
-    c2.metric("Fill rate", f"{ep['fill_rate']:.1%}")
-    c3.metric("Ordering fees", inr(ep["ordering_cost"], symbol=RUPEE))
-    c4.metric("Stockout cost", inr(ep["stockout_penalty"], symbol=RUPEE))
-    c5.metric("Overflow lost", inr(ep["overflow_loss"], symbol=RUPEE))
+    theme.card_row(
+        [
+            (
+                "Profit, 180 days",
+                inr(ep["total_profit"], symbol=RUPEE),
+                policy_name.split("  (")[0],
+            ),
+            ("Fill rate", f"{ep['fill_rate']:.1%}", "share of demand served"),
+            ("Ordering fees", inr(ep["ordering_cost"], symbol=RUPEE), "paid to suppliers"),
+            (
+                "Stockout cost",
+                inr(ep["stockout_penalty"], symbol=RUPEE),
+                "lost sales",
+            ),
+            (
+                "Overflow lost",
+                inr(ep["overflow_loss"], symbol=RUPEE),
+                "the warehouse was full",
+            ),
+        ]
+    )
+    st.write("")
 
     days = ep["days"]
-    left, right = st.columns([3, 2])
+    left, right = st.columns([3, 2], gap="medium")
 
     with left:
-        fig = go.Figure()
-        fig.add_trace(
+        # Two measures of different scale get two charts on one axis each,
+        # never a second y-axis: the alignment of two scales is arbitrary.
+        fig = go.Figure(
             go.Scatter(
-                x=days,
-                y=ep["stock_total"],
-                name="total stock",
-                line={"color": "#1f4e79", "width": 2},
+                x=days, y=ep["stock_total"], name="total stock", line=theme.line(theme.CLASSICAL)
             )
         )
-        fig.add_trace(
-            go.Scatter(
-                x=days,
-                y=np.cumsum(ep["profit_daily"]) * RATE,
-                name="cumulative profit",
-                yaxis="y2",
-                line={"color": CLASSICAL, "width": 2},
-            )
-        )
-        crisis_days = [d for d, a in zip(days, ep["active"], strict=False) if a]
-        if crisis_days:
-            fig.add_vrect(
-                x0=min(crisis_days),
-                x1=max(crisis_days),
-                fillcolor=AGENT,
-                opacity=0.08,
-                line_width=0,
-                annotation_text="disruption active",
-                annotation_position="top left",
-            )
+        crisis_shading(fig, days, ep["active"])
         fig.update_layout(
-            title="Warehouse stock and cumulative profit",
-            xaxis_title="day",
-            yaxis_title="units held",
-            yaxis2={"title": f"profit ({RUPEE})", "overlaying": "y", "side": "right"},
-            height=380,
-            margin={"l": 10, "r": 10, "t": 40, "b": 10},
-            legend={"orientation": "h"},
+            theme.plotly_layout(
+                title={"text": "Warehouse stock, units held"},
+                height=230,
+                showlegend=False,
+                xaxis={"title": {"text": "day"}},
+            )
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, theme=None)
+
+        cum = np.cumsum(ep["profit_daily"]) * RATE / LAKH
+        fig = go.Figure(
+            go.Scatter(x=days, y=cum, name="cumulative profit", line=theme.line(theme.AGENT))
+        )
+        crisis_shading(fig, days, ep["active"])
+        fig.update_layout(
+            theme.plotly_layout(
+                title={"text": f"Cumulative profit, {RUPEE} lakh"},
+                height=230,
+                showlegend=False,
+                xaxis={"title": {"text": "day"}},
+            )
+        )
+        st.plotly_chart(fig, theme=None)
 
     with right:
         counts = np.zeros(3)
@@ -200,22 +260,28 @@ with tab_run:
             for q, sup in zip(o, s_, strict=False):
                 if q > 0:
                     counts[int(sup)] += 1
+        # One series over three nominal suppliers: one colour, values on the caps.
         fig2 = go.Figure(
             go.Bar(
-                x=["EconoSource\ncheap, slow", "RapidTrade\nfast, dear", "MidWay\nunreliable"],
+                x=SUPPLIERS,
                 y=counts,
-                marker_color=["#2c7a4b", "#1f4e79", "#c0392b"],
+                marker=theme.bar_marker(theme.CLASSICAL),
+                width=0.3,
                 text=[f"{c:.0f}" for c in counts],
                 textposition="outside",
+                textfont={"color": theme.INK},
+                cliponaxis=False,
             )
         )
         fig2.update_layout(
-            title=f"Orders placed by supplier ({counts.sum():.0f} total)",
-            height=380,
-            margin={"l": 10, "r": 10, "t": 40, "b": 10},
-            yaxis_title="orders",
+            theme.plotly_layout(
+                title={"text": f"Orders placed by supplier, {counts.sum():.0f} total"},
+                height=492,
+                xaxis={"tickangle": 0},
+                yaxis={"title": {"text": "orders"}},
+            )
         )
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, theme=None)
 
     st.subheader("One product, day by day")
     product = st.slider("Product index", 0, 9, 0)
@@ -223,9 +289,17 @@ with tab_run:
     stock_p = [s_[product] for s_ in ep["stock"]]
     short_p = [x[product] for x in ep["short"]]
     fig3 = go.Figure()
-    fig3.add_trace(go.Bar(x=days, y=demand_p, name="daily demand", marker_color="#b8c9d6"))
     fig3.add_trace(
-        go.Scatter(x=days, y=stock_p, name="stock on hand", line={"color": "#1f4e79", "width": 2})
+        go.Bar(
+            x=days,
+            y=demand_p,
+            name="daily demand",
+            marker={"color": theme.CONTEXT},
+            opacity=0.55,
+        )
+    )
+    fig3.add_trace(
+        go.Scatter(x=days, y=stock_p, name="stock on hand", line=theme.line(theme.CLASSICAL))
     )
     out_days = [d for d, s_ in zip(days, short_p, strict=False) if s_ > 0]
     if out_days:
@@ -235,17 +309,19 @@ with tab_run:
                 y=[0] * len(out_days),
                 mode="markers",
                 name="stockout day",
-                marker={"color": AGENT, "symbol": "triangle-down", "size": 9},
+                marker=theme.marker(theme.STATUS["error"], "triangle-down", 10),
             )
         )
+    crisis_shading(fig3, days, ep["active"])
     fig3.update_layout(
-        height=320,
-        margin={"l": 10, "r": 10, "t": 20, "b": 10},
-        legend={"orientation": "h"},
-        xaxis_title="day",
-        yaxis_title="units",
+        theme.plotly_layout(
+            height=340,
+            bargap=0.35,
+            xaxis={"title": {"text": "day"}},
+            yaxis={"title": {"text": "units"}},
+        )
     )
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, theme=None)
 
 # ---------------------------------------------------------------- explain
 
@@ -280,10 +356,9 @@ with tab_explain:
         with st.spinner("Asking the model… free endpoints rate-limit, this can take a minute"):
             result = explain(facts)
 
-        st.success(result["text"])
-        src = "LLM: " + result["model"] if result["source"] == "llm" else "deterministic template"
-        note = f"  ·  fell back because: {result['reason']}" if result["reason"] else ""
-        st.caption(f"source: {src}{note}")
+        src = result["model"] if result["source"] == "llm" else "deterministic template"
+        note = f"fell back because: {result['reason']}" if result["reason"] else ""
+        theme.quote_card(result["text"], src, note)
         with st.expander("The facts the model was given"):
             st.json(facts)
 
@@ -302,7 +377,7 @@ with tab_compare:
                 continue
             rows.append(
                 {
-                    "policy": name,
+                    "policy": pretty(name),
                     "type": "classical" if base in classical_names else "RL agent",
                     "profit": v["total_profit"],
                     "± std": v["total_profit_std"],
@@ -312,56 +387,91 @@ with tab_compare:
                 }
             )
         df = pd.DataFrame(rows).sort_values("profit", ascending=False).reset_index(drop=True)
-        money = ("profit", "± std", "ordering cost", "stockout cost")
-        shown = df.assign(**{c: df[c] * RATE for c in money})
         best_c = df[df.type == "classical"].iloc[0]
         best_a = df[df.type == "RL agent"].iloc[0]
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Best classical", inr(best_c.profit, symbol=RUPEE), best_c.policy)
-        k2.metric(
-            "Best RL agent",
-            inr(best_a.profit, symbol=RUPEE),
-            f"{best_a.profit / best_c.profit:.1%} of classical",
-        )
         v = cmp.get("verdict") or {}
-        if v:
-            k3.metric(
-                "Paired test",
-                f"t = {v['t']:+.2f}",
-                "significant" if v["significant"] else "not significant",
-                delta_color="off",
-            )
-
-        fig = go.Figure(
-            go.Bar(
-                x=df.profit * RATE,
-                y=df.policy,
-                orientation="h",
-                marker_color=[CLASSICAL if t == "classical" else AGENT for t in df.type],
-                error_x={"type": "data", "array": df["± std"] * RATE, "color": MUTED},
-                text=[inr(p, symbol=RUPEE) for p in df.profit],
-                textposition="outside",
-            )
-        )
-        fig.update_layout(
-            height=420,
-            margin={"l": 10, "r": 10, "t": 30, "b": 10},
-            yaxis={"autorange": "reversed"},
-            xaxis_title=f"profit per 180-day episode ({RUPEE})",
-            title="30 held-out seeds, identical customers for every policy",
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(
-            shown.style.format(
-                {
-                    "profit": "{:,.0f}",
-                    "± std": "{:,.0f}",
-                    "fill rate": "{:.1%}",
-                    "ordering cost": "{:,.0f}",
-                    "stockout cost": "{:,.0f}",
-                }
+        cards = [
+            ("Best classical", inr(best_c.profit, symbol=RUPEE), best_c.policy, "teal"),
+            (
+                "Best RL agent",
+                inr(best_a.profit, symbol=RUPEE),
+                f"{best_a.profit / best_c.profit:.1%} of the best classical policy",
+                "pink",
             ),
-            use_container_width=True,
+        ]
+        if v:
+            cards.append(
+                (
+                    "Paired t-test, 30 seeds",
+                    f"t = {v['t']:+.2f}",
+                    "the gap is real" if v["significant"] else "not significant",
+                    "cream",
+                )
+            )
+        theme.card_row(cards)
+        st.write("")
+
+        # Classical and agent are two series, so both get a legend entry; the
+        # categories are disjoint, so overlay keeps every bar full width.
+        fig = go.Figure()
+        for kind, color in (("classical", theme.CLASSICAL), ("RL agent", theme.AGENT)):
+            part = df[df.type == kind]
+            fig.add_trace(
+                go.Bar(
+                    name=kind,
+                    x=part.profit * RATE / LAKH,
+                    y=part.policy,
+                    orientation="h",
+                    marker=theme.bar_marker(color),
+                    width=0.55,
+                    error_x={
+                        "type": "data",
+                        "array": part["± std"] * RATE / LAKH,
+                        "color": theme.MUTED,
+                        "thickness": 1,
+                        "width": 3,
+                    },
+                )
+            )
+        # Value labels sit past the whisker, not on top of it.
+        for _, r in df.iterrows():
+            fig.add_annotation(
+                x=(r.profit + r["± std"]) * RATE / LAKH,
+                y=r.policy,
+                text=inr(r.profit, symbol=RUPEE),
+                showarrow=False,
+                xanchor="left",
+                xshift=8,
+                font={"color": theme.INK, "size": 12},
+            )
+        fig.update_layout(
+            theme.plotly_layout(
+                barmode="overlay",
+                height=460,
+                title={"text": "30 held-out seeds, identical customers for every policy"},
+                xaxis={"title": {"text": f"profit per 180-day episode, {RUPEE} lakh"}},
+                yaxis={
+                    "categoryorder": "array",
+                    "categoryarray": list(df.policy[::-1]),
+                    "gridcolor": "rgba(0,0,0,0)",
+                },
+                margin={"r": 96},
+            )
+        )
+        st.plotly_chart(fig, theme=None)
+
+        shown = df.rename(
+            columns={
+                "profit": f"profit ({RUPEE} lakh)",
+                "± std": f"± std ({RUPEE} lakh)",
+                "ordering cost": f"ordering cost ({RUPEE} lakh)",
+                "stockout cost": f"stockout cost ({RUPEE} lakh)",
+            }
+        )
+        money = [c for c in shown.columns if "lakh" in c]
+        shown = shown.assign(**{c: shown[c] * RATE / LAKH for c in money})
+        st.dataframe(
+            shown.style.format({**dict.fromkeys(money, "{:.2f}"), "fill rate": "{:.1%}"}),
             hide_index=True,
         )
 
@@ -378,34 +488,116 @@ with tab_robust:
         )
         rdf = pd.DataFrame(
             [
-                {"policy": n, "calm": r["calm"], "disrupted": r["disrupted"], "drop": r["drop_pct"]}
+                {
+                    "policy": pretty(n),
+                    "kind": "classical" if "classical" in n else "RL agent",
+                    "calm": r["calm"],
+                    "disrupted": r["disrupted"],
+                    "drop": r["drop_pct"],
+                }
                 for n, r in rob["rows"].items()
             ]
         ).sort_values("disrupted", ascending=False)
+        best_c = rdf[rdf.kind == "classical"].iloc[0]
+        best_a = rdf[rdf.kind == "RL agent"].iloc[0]
+        v = rob.get("verdict") or {}
+        cards = [
+            (
+                "Best classical under crisis",
+                inr(best_c.disrupted, symbol=RUPEE),
+                f"{best_c.policy}, {best_c['drop']:+.1f}% from calm",
+                "teal",
+            ),
+            (
+                "Best RL agent under crisis",
+                inr(best_a.disrupted, symbol=RUPEE),
+                f"{best_a.policy}, {best_a['drop']:+.1f}% from calm",
+                "pink",
+            ),
+        ]
+        if v:
+            cards.append(
+                (
+                    "Curriculum vs control",
+                    f"t = {v['t']:+.2f}",
+                    "significant" if v["significant"] else "not significant on paired crises",
+                    "lavender",
+                )
+            )
+        theme.card_row(cards)
+        st.write("")
+
+        # The disrupted bar is the story; calm is the context it is measured against.
+        ticks = [p.replace(", ", ",<br>") for p in rdf.policy]  # two short lines beat a tilt
         fig = go.Figure()
-        fig.add_trace(go.Bar(name="calm", x=rdf.policy, y=rdf.calm * RATE, marker_color=MUTED))
         fig.add_trace(
-            go.Bar(name="disrupted", x=rdf.policy, y=rdf.disrupted * RATE, marker_color=AGENT)
+            go.Bar(
+                name="calm",
+                x=ticks,
+                y=rdf.calm * RATE / LAKH,
+                marker=theme.bar_marker(theme.DEEMPHASIS),
+            )
+        )
+        fig.add_trace(
+            go.Bar(
+                name="disrupted",
+                x=ticks,
+                y=rdf.disrupted * RATE / LAKH,
+                marker=theme.bar_marker(theme.AGENT),
+                text=[f"{d:+.0f}%" for d in rdf["drop"]],
+                textposition="outside",
+                textfont={"color": theme.INK, "size": 12},
+                cliponaxis=False,
+            )
         )
         fig.update_layout(
-            barmode="group",
-            height=380,
-            margin={"l": 10, "r": 10, "t": 30, "b": 10},
-            yaxis_title=f"profit ({RUPEE})",
-            title="Calm vs disrupted",
+            theme.plotly_layout(
+                barmode="group",
+                bargap=0.55,
+                height=400,
+                title={"text": "Calm vs disrupted, with the drop on each disrupted bar"},
+                xaxis={"tickangle": 0},
+                yaxis={"title": {"text": f"profit, {RUPEE} lakh"}},
+            )
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, theme=None)
         st.dataframe(
-            rdf.assign(calm=rdf.calm * RATE, disrupted=rdf.disrupted * RATE).style.format(
-                {"calm": "{:,.0f}", "disrupted": "{:,.0f}", "drop": "{:+.1f}%"}
+            rdf.assign(calm=rdf.calm * RATE / LAKH, disrupted=rdf.disrupted * RATE / LAKH)
+            .rename(
+                columns={"calm": f"calm ({RUPEE} lakh)", "disrupted": f"disrupted ({RUPEE} lakh)"}
+            )
+            .style.format(
+                {
+                    f"calm ({RUPEE} lakh)": "{:.2f}",
+                    f"disrupted ({RUPEE} lakh)": "{:.2f}",
+                    "drop": "{:+.1f}%",
+                }
             ),
-            use_container_width=True,
             hide_index=True,
         )
-        v = rob.get("verdict") or {}
         if v:
             st.caption(
                 f"Curriculum vs control, paired on identical (crisis, seed) pairs: "
                 f"t = {v['t']:+.2f}, {'significant' if v['significant'] else 'not significant'}. "
                 f"A smaller percentage drop on a lower base is not robustness."
             )
+
+theme.footer(
+    [
+        (
+            "SupplyAI-RL",
+            ["22AIE450 Reinforcement Learning", "Explainable supply chain optimization"],
+        ),
+        (
+            "Data",
+            [
+                "UCI Online Retail II, 1.07M real sales records",
+                "10 products, 3 suppliers, 180-day runs",
+            ],
+        ),
+        (
+            "Money",
+            [f"Shown in rupees at 1 GBP = {RUPEE}{RATE:.0f}", "Set in configs/display.yaml"],
+        ),
+    ]
+)

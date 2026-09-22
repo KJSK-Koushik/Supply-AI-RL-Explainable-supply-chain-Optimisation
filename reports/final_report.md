@@ -381,7 +381,7 @@ When the challenger beats the engine consistently on live data, it gets promoted
 ## 13. Reproducing everything
 
 ```bash
-python -m pytest tests/ -q                    # 133 tests
+python -m pytest tests/ -q                    # 137 tests
 python -m src.data.run_pipeline               # rebuild the simulator settings from raw data
 python -m src.agents.tune_baselines           # tune the classical methods
 python -m src.agents.train_ppo --name run     # train an AI

@@ -1,0 +1,46 @@
+# Dashboard theme: the Clay design system (cream canvas, near-black primary,
+# Inter, generous radius). Only the tokens Streamlit's theme can express live
+# here; pill tabs, feature cards and the chart layout are in app/theme.py.
+# Token names in comments refer to the design-system spec.
+
+[theme]
+base = "light"
+primaryColor = "#0a0a0a"                 # colors.primary
+backgroundColor = "#fffaf0"              # colors.canvas
+secondaryBackgroundColor = "#f5f0e0"     # colors.surface-card
+textColor = "#0a0a0a"                    # colors.ink
+linkColor = "#0a0a0a"                    # text-link: ink, underlined
+linkUnderline = true
+
+font = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+headingFont = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+baseFontSize = 16                        # typography.body-md
+baseFontWeight = 400
+# h1..h6 = display-md, display-sm, title-lg, title-md, title-sm, caption.
+# Display sizes stay at weight 500: the system never bolds display type.
+headingFontSizes = ["2.5rem", "2rem", "1.5rem", "1.125rem", "1rem", "0.8125rem"]
+headingFontWeights = [500, 500, 600, 600, 600, 500]
+
+baseRadius = "12px"                      # rounded.md: inputs
+buttonRadius = "12px"                    # rounded.md: buttons
+borderColor = "#e5e5e5"                  # colors.hairline
+showWidgetBorder = true
+showSidebarBorder = true
+dataframeBorderColor = "#e5e5e5"
+dataframeHeaderBackgroundColor = "#faf5e8"   # colors.surface-soft
+codeBackgroundColor = "#f5f0e0"
+codeTextColor = "#1a1a1a"
+
+# Semantic colours (status), used by st.success / st.warning / st.error.
+greenColor = "#22c55e"
+orangeColor = "#f59e0b"
+redColor = "#ef4444"
+grayColor = "#6a6a6a"                    # colors.muted
+
+# Chart series: steps of the brand hues moved into the legal lightness band
+# for data marks on the cream surface. Validated; see app/theme.py.
+chartCategoricalColors = ["#007557", "#ff4d8b", "#6b529f", "#98751a"]
+
+[theme.sidebar]
+backgroundColor = "#faf5e8"              # colors.surface-soft
+secondaryBackgroundColor = "#fffaf0"     # inputs sit on canvas inside the soft band
