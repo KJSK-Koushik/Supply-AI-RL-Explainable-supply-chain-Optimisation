@@ -110,9 +110,23 @@ def load_policies() -> dict:
     return out
 
 
+BEFORE = "fixed daily order (no system)"
+
+
+@st.cache_resource(show_spinner=False)
+def load_before() -> dict:
+    """The "before" picture: the same fixed order every day, which is what a
+    shop does without a decision system. Tuned like every other baseline, so
+    the before/after gap is not inflated by a careless rule."""
+    from src.agents.tune_baselines import make
+
+    data = load_json("results/baselines.json")
+    return {BEFORE: ("classical", make("constant", data["policies"]["constant"]["params"]))}
+
+
 @st.cache_data(show_spinner=False)
 def run_traced(policy_name: str, seed: int, disrupted: bool) -> dict:
-    kind, policy = load_policies()[policy_name]
+    kind, policy = {**load_policies(), **load_before()}[policy_name]
     scenarios = fallback_scenarios() if disrupted else None
     summary = run_episode(policy, seed, scenarios=scenarios, collect_trace=True)
     # The trace holds numpy arrays; keep only what the page draws.
@@ -196,8 +210,8 @@ with st.sidebar:
         "Same seed = same customers and delivery delays for every policy."
     )
 
-tab_run, tab_explain, tab_compare, tab_robust = st.tabs(
-    ["Episode", "Explain a decision", "Policy comparison", "Robustness"]
+tab_run, tab_before, tab_explain, tab_compare, tab_robust = st.tabs(
+    ["Episode", "Before vs after", "Explain a decision", "Policy comparison", "Robustness"]
 )
 
 # ---------------------------------------------------------------- episode
@@ -334,6 +348,202 @@ with tab_run:
         )
     )
     st.plotly_chart(fig3, theme=None)
+
+# ---------------------------------------------------------- before vs after
+
+with tab_before:
+    cmp = load_json("results/comparison.json")
+    if not cmp or "constant" not in cmp["summaries"]:
+        st.info("Run `python -m src.eval.compare` first.")
+    else:
+        st.markdown(
+            "**Before:** the shop orders the same fixed amount every day, with no forecast "
+            "and no explanation. **After:** the system's engine (forecast + safety stock) "
+            "decides, the RL agent runs alongside as the challenger, and every decision "
+            "can be explained. Same 30 unseen test runs, same customers, same delays."
+        )
+        summ = cmp["summaries"]
+        sides = [
+            ("Before: fixed daily order", "constant", theme.DEEMPHASIS),
+            ("After: engine", "forecast+SS", theme.CLASSICAL),
+            ("After: RL challenger", "kaggle_full01 (masked)", theme.AGENT),
+        ]
+        sides = [x for x in sides if x[1] in summ]
+        before, engine = summ["constant"], summ["forecast+SS"]
+
+        def change(new: float, old: float) -> str:
+            return f"{(new - old) / abs(old):+.0%} vs before"
+
+        theme.card_row(
+            [
+                (
+                    "Profit per run",
+                    f"{inr(before['total_profit'], symbol=RUPEE)} → "
+                    f"{inr(engine['total_profit'], symbol=RUPEE)}",
+                    change(engine["total_profit"], before["total_profit"]),
+                    "teal",
+                ),
+                (
+                    "Fill rate",
+                    f"{before['fill_rate']:.1%} → {engine['fill_rate']:.1%}",
+                    f"{(engine['fill_rate'] - before['fill_rate']) * 100:+.1f} points",
+                    "lavender",
+                ),
+                (
+                    "Stockout cost",
+                    f"{inr(before['stockout_penalty'], symbol=RUPEE)} → "
+                    f"{inr(engine['stockout_penalty'], symbol=RUPEE)}",
+                    change(engine["stockout_penalty"], before["stockout_penalty"]),
+                    "peach",
+                ),
+            ]
+        )
+        st.write("")
+
+        # Four measures on four scales: small multiples, one axis each.
+        metrics = [
+            ("Profit per run", "total_profit", True, f"{RUPEE} lakh"),
+            ("Fill rate", "fill_rate", False, "%"),
+            ("Stockout cost", "stockout_penalty", True, f"{RUPEE} lakh"),
+            ("Ordering fees", "ordering_cost", True, f"{RUPEE} lakh"),
+        ]
+        cols = st.columns(4, gap="small")
+        for col, (title, key, money, unit) in zip(cols, metrics, strict=True):
+            vals = [summ[k][key] * (RATE / LAKH if money else 100) for _, k, _ in sides]
+            text = [f"{v:.1f}" if money else f"{v:.1f}%" for v in vals]
+            fig = go.Figure(
+                go.Bar(
+                    x=["before" if k == "constant" else lbl.split(": ")[1] for lbl, k, _ in sides],
+                    y=vals,
+                    marker={"color": [c for _, _, c in sides], "cornerradius": 4},
+                    width=0.5,
+                    text=text,
+                    textposition="outside",
+                    textfont={"color": theme.INK, "size": 12},
+                    cliponaxis=False,
+                    hovertemplate="%{x}: %{text}<extra></extra>",
+                )
+            )
+            fig.update_layout(
+                theme.plotly_layout(
+                    title={"text": f"{title}, {unit}"},
+                    height=300,
+                    showlegend=False,
+                    xaxis={"tickangle": 0, "tickfont": {"size": 11}},
+                    yaxis={"range": [0, max(vals) * 1.2]},
+                )
+            )
+            col.plotly_chart(fig, theme=None)
+        st.caption(
+            "Grey = before, green = after (engine), pink = after (RL challenger). "
+            "Higher is better for profit and fill rate; lower is better for stockout "
+            "cost and ordering fees."
+        )
+
+        # Every one of the 30 runs, so the gain is not an average hiding losses.
+        per = cmp.get("per_seed_profits", {})
+        if all(k in per for _, k, _ in sides):
+            seeds = cmp["eval_seeds"]
+            order = np.argsort(per["constant"])
+            fig = go.Figure()
+            for label, key, color in sides:
+                fig.add_trace(
+                    go.Scatter(
+                        x=[str(seeds[i]) for i in order],
+                        y=np.asarray(per[key])[order] * RATE / LAKH,
+                        mode="markers",
+                        name=label,
+                        marker=theme.marker(color, size=10),
+                    )
+                )
+            wins = sum(a > b for a, b in zip(per["forecast+SS"], per["constant"], strict=True))
+            fig.update_layout(
+                theme.plotly_layout(
+                    title={
+                        "text": f"Every test run: the engine beats the fixed order on {wins} "
+                        f"of {len(seeds)}"
+                    },
+                    height=380,
+                    xaxis={
+                        "title": {"text": "test seed, sorted by the before profit"},
+                        "type": "category",
+                    },
+                    yaxis={"title": {"text": f"profit, {RUPEE} lakh"}},
+                )
+            )
+            st.plotly_chart(fig, theme=None)
+
+        # One run day by day, following the sidebar's seed and crisis switch.
+        st.subheader("One run, day by day")
+        st.caption(
+            f"Seed {seed}"
+            + (", with the crisis injected" if disrupted else "")
+            + ". Change both in the sidebar."
+        )
+        runs = [(BEFORE, theme.DEEMPHASIS, "Before: fixed daily order")]
+        for n in policies:
+            engine_run = "(engine)" in n
+            runs.append(
+                (
+                    n,
+                    theme.CLASSICAL if engine_run else theme.AGENT,
+                    "After: engine" if engine_run else "After: RL challenger",
+                )
+            )
+        with st.spinner("Simulating before and after…"):
+            traced = [(run_traced(n, seed, disrupted), c, lbl) for n, c, lbl in runs]
+        days = traced[0][0]["days"]
+        active = traced[0][0]["active"]
+
+        left, right = st.columns(2, gap="medium")
+        fig = go.Figure()
+        for ep_, color, label in traced:
+            fig.add_trace(
+                go.Scatter(
+                    x=ep_["days"],
+                    y=np.cumsum(ep_["profit_daily"]) * RATE / LAKH,
+                    name=label,
+                    line=theme.line(color),
+                )
+            )
+        crisis_shading(fig, days, active)
+        fig.update_layout(
+            theme.plotly_layout(
+                title={"text": f"Cumulative profit, {RUPEE} lakh"},
+                height=380,
+                xaxis={"title": {"text": "day"}},
+                legend={"y": -0.3, "yanchor": "top", "x": 0, "xanchor": "left"},
+            )
+        )
+        left.plotly_chart(fig, theme=None)
+
+        fig = go.Figure()
+        for ep_, color, label in traced:
+            # product-days out of stock, counted up as the run goes on
+            out_today = [int(np.sum(np.asarray(s_) > 0)) for s_ in ep_["short"]]
+            fig.add_trace(
+                go.Scatter(
+                    x=ep_["days"],
+                    y=np.cumsum(out_today),
+                    name=label,
+                    line=theme.line(color),
+                )
+            )
+        crisis_shading(fig, days, active)
+        fig.update_layout(
+            theme.plotly_layout(
+                title={"text": "Stockouts so far, product-days out of stock"},
+                height=380,
+                xaxis={"title": {"text": "day"}},
+                legend={"y": -0.3, "yanchor": "top", "x": 0, "xanchor": "left"},
+            )
+        )
+        right.plotly_chart(fig, theme=None)
+        st.caption(
+            "The honest reading: most of the gain over the fixed order comes from "
+            "forecasting with safety stock, which is what the engine does. The RL "
+            "challenger also beats the fixed order, but it still trails the engine."
+        )
 
 # ---------------------------------------------------------------- explain
 
