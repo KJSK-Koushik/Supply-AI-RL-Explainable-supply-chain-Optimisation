@@ -64,12 +64,32 @@ def pretty(name: str) -> str:
     return PRETTY.get(name, name)
 
 
+# Only the rows a claim in the report rests on. Everything else the project
+# produced stays in the result files but is not shown.
+#   comparison: 4 classical methods ("beats two of the four"), the tuned agent
+#     (90.8%), the untuned agent and the no-masking agent (masking ~3x,
+#     tuning closed 38% of the gap)
+#   robustness: the engine, the tuned agent, and the curriculum agent with
+#     its control (curriculum did not help)
+COMPARISON_ROWS = {
+    "forecast+SS",
+    "newsvendor",
+    "EOQ+ROP",
+    "(s,S)",
+    "kaggle_full01 (masked)",
+    "masked_1m (masked)",
+    "baseline_1m",
+}
+ROBUSTNESS_ROWS = {"forecast+SS (classical)", "kaggle_full01", "masked_1m", "curriculum_1m"}
+
+
 # ------------------------------------------------------------------ loading
 
 
 @st.cache_resource(show_spinner=False)
 def load_policies() -> dict:
-    """Every policy the project produced. Cached: models load once."""
+    """The engine and the challenger -- the two policies the shadow-mode claim
+    is about. Cached: models load once."""
     out = {}
     bl = resolve("results/baselines.json")
     if bl.exists():
@@ -77,20 +97,12 @@ def load_policies() -> dict:
 
         with bl.open(encoding="utf-8") as fh:
             data = json.load(fh)
-        for kind, entry in data["policies"].items():
-            if kind in ("random", "constant"):
-                continue
-            tag = "  (engine)" if kind == data["best_baseline"] else ""
-            out[f"{kind}{tag}"] = ("classical", make(kind, entry["params"]))
+        best = data["best_baseline"]
+        out[f"{best}  (engine)"] = ("classical", make(best, data["policies"][best]["params"]))
 
     from src.agents.rl_policy import RLPolicy
 
-    pretty = {
-        "kaggle_full01": "RL agent, tuned (2M)  (challenger)",
-        "kaggle_full00": "RL agent, 2nd config (2M)",
-        "masked_1m": "RL agent, untuned (1M)",
-        "curriculum_1m": "RL agent, curriculum (1M)",
-    }
+    pretty = {"kaggle_full01": "RL agent, tuned (2M)  (challenger)"}
     for d in sorted(p for p in resolve("results/models").glob("*") if p.is_dir()):
         model = d / "best_model.zip"
         if model.exists() and d.name in pretty:
@@ -373,7 +385,7 @@ with tab_compare:
         classical_names = set(load_json("results/baselines.json")["policies"])
         for name, v in cmp["summaries"].items():
             base = name.split(" (")[0]
-            if base == "random" or "_s0" in name or "probe" in name:
+            if name not in COMPARISON_ROWS:
                 continue
             rows.append(
                 {
@@ -496,6 +508,7 @@ with tab_robust:
                     "drop": r["drop_pct"],
                 }
                 for n, r in rob["rows"].items()
+                if n in ROBUSTNESS_ROWS
             ]
         ).sort_values("disrupted", ascending=False)
         best_c = rdf[rdf.kind == "classical"].iloc[0]
