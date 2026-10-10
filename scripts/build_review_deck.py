@@ -450,16 +450,16 @@ write(
                     1500,
                 ),
                 (
-                    "Reinforcement learning can express what a formula cannot: a joint ordering "
-                    "and sourcing policy that adapts to season, volatility and supplier state.",
+                    "Our hypothesis: RL can learn a joint ordering and sourcing policy that "
+                    "adapts to season, volatility and supplier state, which a formula cannot.",
                     0,
                     1800,
                     True,
                 ),
                 ("But a manager will not act on a number they cannot interpret.", 0, 1800, True),
                 (
-                    "Hence the motivation: pair an RL decision-maker with an LLM that states the "
-                    "reason for every order in business language.",
+                    "Hence the motivation: pair an RL decision-maker with an LLM that explains "
+                    "the situation behind every order in business language, every number checked.",
                     1,
                     1500,
                 ),
@@ -1050,7 +1050,7 @@ rows = [
     [
         "6",
         "LLM explanation module via OpenRouter",
-        "Plain-English reason for every order decision",
+        "Plain-English explanation of every order decision",
         "Next",
     ],
     ["7", "LLM scenario generator", "Demand-spike and supplier-failure stress tests", "Planned"],
