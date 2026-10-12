@@ -197,9 +197,10 @@ goes offline most often, RapidTrade almost never.}
 Each day, for each product, one of $7\times3=21$ options is chosen: a quantity
 level and a supplier. Over 10 products this gives $21^{10}\approx1.7\times10^{13}$
 daily combinations. The goal is to maximize profit,
-\begin{equation}
-\text{profit}=\text{sales}-\text{purchases}-\text{storage}-\text{fees}-\text{stockout}-\text{overflow}.
-\end{equation}
+\begin{equation}\begin{split}
+\text{profit}={}&\text{sales}-\text{purchases}-\text{storage}\\
+&-\text{fees}-\text{stockout}-\text{overflow}.
+\end{split}\end{equation}
 
 \paragraph{Splits.}
 Three disjoint seed groups are used: seeds 100--111 tune the classical
