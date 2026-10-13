@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  .canvas { height: 580px; }
+  .row { display: grid; grid-template-columns: 1fr 340px 1fr; gap: 0; margin-top: 18px; align-items: center; }
+  .box { min-height: 370px; }
+  .mid { display: flex; flex-direction: column; gap: 60px; align-items: center; padding: 0 8px; }
+  .lbl { text-align: center; font-size: 19px; color: var(--muted); line-height: 1.3; }
+  .lbl b { display: block; font-size: 23px; color: var(--ink); }
+  .arr { font-size: 46px; line-height: .6; color: #475569; font-weight: 700; }
+  .mask { margin-top: 14px; background: #fff; border: 2px dashed var(--pink); border-radius: 12px; padding: 10px 14px; font-size: 19px; }
+  .mask b { color: var(--pink); }
+</style></head><body><div class="canvas">
+  <h1>How the agent learns: one daily loop</h1>
+  <div class="sub">Every day the agent sees the shop, picks orders, and is scored on that day&rsquo;s profit.</div>
+  <div class="row">
+    <div class="box k"><span class="chip">Environment</span><h3>The simulated shop</h3>
+      <ul><li>10 products, 3 suppliers, shared 20,000-unit warehouse</li><li>Random customers, delays, partial shipments, outages</li><li>Crises injected from the LLM generator</li><li>180 days per episode, first 14 not scored</li></ul></div>
+    <div class="mid">
+      <div class="lbl"><b>State &rarr;</b>88 numbers: stock, stock on the way, days of cover, recent demand, season, supplier status</div>
+      <div class="lbl"><b>&larr; Action</b>per product: 1 of 21 options<br>(7 quantity levels &times; 3 suppliers)</div>
+      <div class="lbl"><b>&larr; Reward</b>that day&rsquo;s profit, scaled and clipped</div>
+    </div>
+    <div class="box p"><span class="chip">Agent</span><h3>MaskablePPO</h3>
+      <ul><li>Small network, two layers of 256 units, trains on CPU</li><li>Learning rate 5e-5, 2 million training steps</li><li>Quantity and supplier chosen <b>together</b>, so training is 2.8&times; faster</li></ul>
+      <div class="mask"><b>Action masking:</b> offline suppliers and orders too big for the warehouse are blocked <i>before</i> the agent chooses. Worth about 3&times;.</div></div>
+  </div>
+</div></body></html>

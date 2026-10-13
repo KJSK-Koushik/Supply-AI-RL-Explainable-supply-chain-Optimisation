@@ -1,0 +1,30 @@
+/* Shared look for the deck infographics. Colours follow the dashboard and the
+   figures: green = classical engine, pink = RL agent, blue = LLM layer,
+   amber = data, grey = evaluation. */
+:root {
+  --green: #2e8b57; --green-d: #1b5e3a; --green-l: #e6f4ea;
+  --pink: #d6336c;  --pink-l: #fde8ef;
+  --blue: #2f6fb5;  --blue-l: #e7f0fa;
+  --amber: #b7791f; --amber-l: #fdf3dc;
+  --ink: #1f2937;   --muted: #5b6573; --line: #cbd5e1; --grey-l: #f1f5f9;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1600px; background: #fff; font-family: "Segoe UI", Inter, Arial, sans-serif; color: var(--ink); }
+.canvas { width: 1600px; padding: 28px 36px; position: relative; }
+h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; }
+.sub { font-size: 18px; color: var(--muted); margin-top: 4px; }
+.box { border-radius: 16px; border: 2px solid var(--line); background: #fff; padding: 16px 18px; position: relative; }
+.box h3 { font-size: 23px; font-weight: 700; margin-bottom: 8px; }
+.box p, .box li { font-size: 19px; line-height: 1.33; color: var(--ink); }
+.box ul { list-style: none; }
+.box li { padding: 3px 0 3px 18px; position: relative; }
+.box li::before { content: ""; position: absolute; left: 2px; top: 11px; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .55; }
+.chip { display: inline-block; font-size: 14px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #fff; padding: 4px 11px; border-radius: 999px; margin-bottom: 10px; }
+.g { border-color: var(--green); background: var(--green-l); } .g .chip { background: var(--green); } .g h3 { color: var(--green-d); }
+.p { border-color: var(--pink);  background: var(--pink-l);  } .p .chip { background: var(--pink); }  .p h3 { color: var(--pink); }
+.b { border-color: var(--blue);  background: var(--blue-l);  } .b .chip { background: var(--blue); }  .b h3 { color: var(--blue); }
+.a { border-color: var(--amber); background: var(--amber-l); } .a .chip { background: var(--amber); } .a h3 { color: var(--amber); }
+.k { border-color: #64748b; background: var(--grey-l); } .k .chip { background: #64748b; } .k h3 { color: #334155; }
+.arrow { position: absolute; color: #475569; font-size: 34px; font-weight: 700; line-height: 1; }
+.pill { display: inline-block; font-size: 17px; font-weight: 600; padding: 5px 12px; border-radius: 999px; background: #fff; border: 1.5px solid currentColor; margin: 3px 4px 3px 0; }
+.num { display: inline-flex; width: 34px; height: 34px; border-radius: 50%; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; color: #fff; margin-right: 10px; flex: none; }

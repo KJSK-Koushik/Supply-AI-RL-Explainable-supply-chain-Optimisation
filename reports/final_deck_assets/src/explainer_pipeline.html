@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  .canvas { height: 650px; }
+  .flow { display: grid; grid-template-columns: 1fr 34px 1fr 34px 1fr 34px 1fr; gap: 6px; margin-top: 18px; align-items: stretch; }
+  .gap { display: flex; align-items: center; justify-content: center; font-size: 30px; color: #475569; font-weight: 700; }
+  .box { min-height: 255px; }
+  .ex { margin-top: 18px; border-radius: 16px; background: var(--grey-l); border: 2px solid var(--line); padding: 16px 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .ex h4 { font-size: 16px; letter-spacing: 1.3px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .ex p { font-size: 20px; line-height: 1.4; }
+  .bad { color: var(--pink); font-weight: 700; }
+  .ok  { color: var(--green-d); font-weight: 700; }
+</style></head><body><div class="canvas">
+  <h1>The explainer: facts in, checked sentences out</h1>
+  <div class="sub">The LLM is never asked <i>why</i>. It only restates what the simulator computed, and every number is checked.</div>
+  <div class="flow">
+    <div class="box k"><span class="chip">1 Facts</span><h3>Simulator facts</h3><ul><li>stock, orders on the way</li><li>days of cover, recent demand</li><li>what was ordered, from whom</li><li>supplier lead time, reliability</li></ul></div>
+    <div class="gap">&#10140;</div>
+    <div class="box b"><span class="chip">2 LLM</span><h3>Writes 2&ndash;3 sentences</h3><ul><li>3 free models tried in order</li><li>retry and back-off on rate limits</li><li>forbidden: inventing causes</li></ul></div>
+    <div class="gap">&#10140;</div>
+    <div class="box a"><span class="chip">3 Check</span><h3>Grounding check</h3><ul><li>every number must appear in the facts</li><li>required fields must be present</li></ul></div>
+    <div class="gap">&#10140;</div>
+    <div class="box g"><span class="chip">4 Delivered</span><h3>Shown to the manager</h3><ul><li><b>pass:</b> the LLM text</li><li><b>fail:</b> a fixed template instead</li></ul></div>
+  </div>
+  <div class="ex">
+    <div><h4>What a delivered explanation looks like</h4>
+      <p>&ldquo;Product 21212 holds 2,438 units in stock with nothing on order, providing 14.5 days of cover at the typical daily demand of 169 units. Recent demand has averaged 89 units over the last seven days. No order was placed today.&rdquo;</p></div>
+    <div><h4>Measured on 30 real decisions</h4>
+      <p>Raw LLM output: <span class="bad">5 of 30 contained an invented number</span> (83% accurate).<br>
+      After the check: <span class="ok">0 of 30 reached the user</span> (100% delivered accuracy).</p></div>
+  </div>
+</div></body></html>

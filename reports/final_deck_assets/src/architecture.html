@@ -1,0 +1,73 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+  .canvas { height: 960px; }
+  .cols { display: grid; grid-template-columns: 1fr 34px 1.05fr 34px 1.25fr 34px 1.15fr 34px 1.05fr; gap: 6px; margin-top: 20px; height: 690px; }
+  .col { display: flex; flex-direction: column; gap: 16px; }
+  .col .box { flex: 1; }
+  .col .tall { flex: 1.4; }
+  .gap { display: flex; align-items: center; justify-content: center; font-size: 30px; color: #475569; font-weight: 700; }
+  .strip { position: absolute; left: 36px; right: 36px; bottom: 26px; height: 96px; border-radius: 16px; background: #1b5e3a; color: #fff; display: flex; align-items: center; padding: 0 26px; gap: 28px; }
+  .strip b { font-size: 25px; }
+  .strip span { font-size: 19px; opacity: .95; line-height: 1.35; }
+  .strip .tag { background: #fff; color: #1b5e3a; border-radius: 999px; padding: 6px 16px; font-weight: 700; font-size: 15px; letter-spacing: 1px; white-space: nowrap; }
+</style></head><body><div class="canvas">
+  <h1>SupplyAI-RL: system architecture</h1>
+  <div class="sub">Data builds a simulator. Two decision makers act in it. An LLM layer explains and stress-tests. A dashboard shows everything.</div>
+
+  <div class="cols">
+    <div class="col">
+      <div class="box a tall"><span class="chip">1 Data</span>
+        <h3>UCI Online Retail II</h3>
+        <ul><li>1,067,371 real sales records</li><li>UK gift shop, 2009&ndash;2011</li><li>Cleaned, 10 products chosen to cover 3 demand types</li></ul></div>
+      <div class="box a"><h3>Calibration</h3>
+        <p>Five measurements only: mean demand, variability, weekday pattern, month pattern, zero-sales days.</p></div>
+    </div>
+
+    <div class="gap">&#10140;</div>
+    <div class="col">
+      <div class="box k tall"><span class="chip">2 Simulator</span>
+        <h3>Virtual shop (Gymnasium)</h3>
+        <ul><li>10 products, 3 suppliers</li><li>One shared warehouse, 20,000 units</li><li>180 days, 14-day warm-up</li><li>Random delays, partial shipments, outages</li></ul></div>
+      <div class="box k"><h3>Daily cycle</h3>
+        <p>deliveries &rarr; customers &rarr; sales &rarr; today&rsquo;s orders &rarr; profit</p></div>
+    </div>
+
+    <div class="gap">&#10140;</div>
+    <div class="col">
+      <div class="box g"><span class="chip">3 Engine</span>
+        <h3>Tuned classical policies</h3>
+        <p><span class="pill" style="color:var(--green-d)">forecast + safety stock</span><span class="pill" style="color:var(--green-d)">newsvendor</span><span class="pill" style="color:var(--green-d)">EOQ + ROP</span><span class="pill" style="color:var(--green-d)">(s, S)</span></p>
+        <p style="margin-top:6px">The one a buyer would run today.</p></div>
+      <div class="box p"><span class="chip">3 Challenger</span>
+        <h3>MaskablePPO agent</h3>
+        <ul><li>88 inputs, 21 options per product</li><li>Action masking blocks illegal choices</li><li>Scored, never in charge</li></ul></div>
+    </div>
+
+    <div class="gap">&#10140;</div>
+    <div class="col">
+      <div class="box b"><span class="chip">4 LLM explainer</span>
+        <h3>Facts &rarr; sentences</h3>
+        <ul><li>Receives only simulator facts</li><li>Every number checked</li><li>Template if a number is invented</li></ul></div>
+      <div class="box b"><span class="chip">4 LLM crisis generator</span>
+        <h3>Scenarios &rarr; tests</h3>
+        <ul><li>Spikes, outages, delays, cost jumps</li><li>Validated and clamped</li><li>6 unseen crises for testing</li></ul></div>
+    </div>
+
+    <div class="gap">&#10140;</div>
+    <div class="col">
+      <div class="box k tall"><span class="chip">5 Evaluation</span>
+        <h3>Fair comparison</h3>
+        <ul><li>30 held-out seeds</li><li>Same customers for every method</li><li>Paired t-test</li><li>Calm and crisis runs</li></ul></div>
+      <div class="box k"><span class="chip">5 Dashboard</span>
+        <h3>Streamlit, recommend-only</h3>
+        <p>Episode &middot; Before vs after &middot; Explain &middot; Comparison &middot; Robustness</p></div>
+    </div>
+  </div>
+
+
+  <div class="strip">
+    <span class="tag">SHADOW MODE</span>
+    <span><b>The engine decides. The challenger is scored beside it. Nothing here places an order.</b><br>
+    When the challenger beats the engine consistently on live data, it can be promoted.</span>
+  </div>
+</div></body></html>
