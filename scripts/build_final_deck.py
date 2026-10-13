@@ -164,7 +164,7 @@ left = [
     "3  Literature review and gaps",
     "4  Objectives and status",
     "5  System architecture",
-    "6  Methodology: simulator, agent, baselines",
+    "6  Methodology: the agent, the baselines",
     "7  Dataset and data stability",
     "8  LLM explainer and crisis generator",
 ]
@@ -555,7 +555,7 @@ card(
 )
 notes(
     s,
-    "The loop: state in, action out, reward back. Action masking is the biggest single improvement: it stops the agent wasting training on choices that are never legal.",
+    "If asked for detail: the simulator runs five steps a day (deliveries, customers, sales, orders, profit), with storage at 0.15% of cost per day, leftover stock worth 60% of cost, and one shared 20,000-unit warehouse. The agent sees 88 numbers and picks one of 21 options per product; the winning settings were learning rate 5e-5, entropy 0.005, gamma 0.995, rollout 1024, network 2 x 256, from an 8-configuration search with the best two run to 2M steps. The loop: state in, action out, reward back. Action masking is the biggest single improvement: it stops the agent wasting training on choices that are never legal.",
 )
 
 # ================================================================= 10 dataset
@@ -685,141 +685,6 @@ text(
 notes(
     s,
     "This answers the faculty's question that the data is from 2009-2011. We split the two years and measured the demand shape in each. The two features the simulator relies on most hold. We do not claim anything about today's market.",
-)
-
-# ================================================================ 12 simulator
-s = new_slide(prs, tpl_content, "Methodology: The Simulator")
-pic = trim_white(ASSETS / "daily_cycle.png", TMP / "daily_cycle.png")
-picture(s, pic, CL - 0.05, CT - 0.15, CW + 0.1, 3.0, border=False)
-card(
-    s,
-    CL,
-    CT + 2.95,
-    4.0,
-    2.45,
-    "Storage cost",
-    [
-        "0.15% of item cost per day",
-        "High on purpose: seasonal gift items lose value",
-        "An earlier 730% a year made any stock absurdly costly",
-    ],
-    GREY_L,
-    GREEN,
-    body_size=14,
-)
-card(
-    s,
-    CL + 4.2,
-    CT + 2.95,
-    4.0,
-    2.45,
-    "Leftover stock",
-    [
-        "Worth 60% of cost at day 180",
-        "An earlier version wrote it off, an artefact of stopping at 180 days",
-    ],
-    GREY_L,
-    BLUE,
-    body_size=14,
-)
-card(
-    s,
-    CL + 8.4,
-    CT + 2.95,
-    4.03,
-    2.45,
-    "One shared warehouse",
-    [
-        "With per-product limits, “always order the maximum” was best",
-        "A shared limit made ordering a real trade-off",
-    ],
-    GREY_L,
-    PINK,
-    body_size=14,
-)
-notes(
-    s,
-    "A Gymnasium environment. The three cards are three mistakes in earlier versions that we fixed after the simulator itself told us something was wrong. A demo confirms the simulator rewards sensible behaviour: reasonable rules earn about 27 lakh, never ordering loses 3.9 crore.",
-)
-
-# ============================================================== 13 RL agent
-s = new_slide(prs, tpl_content, "Methodology: The RL Agent")
-card(
-    s,
-    CL,
-    CT,
-    4.0,
-    2.55,
-    "What it sees: 88 numbers",
-    [
-        "Per product: stock, stock on order, days of cover, 7-day demand, variability, trend, backlog",
-        "Weekday, season, supplier availability, lead time, reliability",
-    ],
-    BLUE_L,
-    BLUE,
-    body_size=14,
-)
-card(
-    s,
-    CL + 4.2,
-    CT,
-    4.0,
-    2.55,
-    "What it decides",
-    [
-        "One of 21 options per product",
-        "7 quantity levels × 3 suppliers",
-        "Offline suppliers and oversize orders are masked",
-    ],
-    PINK_L,
-    PINK,
-    body_size=14,
-)
-card(
-    s,
-    CL + 8.4,
-    CT,
-    4.03,
-    2.55,
-    "What it is rewarded for",
-    [
-        "That day’s profit, scaled and clipped",
-        "Zero during the 14-day warm-up",
-        "Not shown: any ordering history (see error analysis)",
-    ],
-    GREEN_L,
-    GREEN,
-    body_size=14,
-)
-hp = [
-    ["Winning setting", "Value"],
-    ["Learning rate", "5e-5 (lowest offered)"],
-    ["Entropy coefficient", "0.005"],
-    ["Discount γ", "0.995"],
-    ["Rollout length", "1024"],
-    ["Network", "2 × 256, CPU"],
-]
-table(s, hp, CL, CT + 2.8, 5.6, [2.8, 2.8], font=13, row_h=0.4)
-text(
-    s,
-    CL + 5.9,
-    CT + 2.8,
-    6.5,
-    2.6,
-    [
-        {"t": "Hyperparameter search", "size": 17, "bold": True, "color": GREEN_D},
-        {"t": "8 configurations, 250,000-step trial each", "size": 14, "bullet": True},
-        {"t": "Best 2 trained to 2M steps on Kaggle (about 4.8 hours)", "size": 14, "bullet": True},
-        {
-            "t": "Winner: lowest learning rate, larger network. Earlier runs were unstable because they learned too fast, not because the network was too small.",
-            "size": 14,
-            "bullet": True,
-        },
-    ],
-)
-notes(
-    s,
-    "MaskablePPO is PPO with action masking. The agent's inputs include nothing about its own ordering history, which turns out to be the cause of its main weakness.",
 )
 
 # ============================================================ 14 baselines + fairness
@@ -982,7 +847,7 @@ notes(
 # ======================================================== 17-22 dashboard evidence
 CROP_PANEL = (370, 440, 1530, 1190)
 
-s = new_slide(prs, tpl_content, "Dashboard (1/7): Episode View, Engine")
+s = new_slide(prs, tpl_content, "Dashboard (1/5): Episode View, Engine")
 picture(
     s,
     SCREENS / "episode_engine.png",
@@ -1023,7 +888,7 @@ notes(
     "Live demo starting point. The dashboard opens on the engine, the policy a buyer would actually run. Everything shown comes from a real episode run on demand; no number on the page is typed in.",
 )
 
-s = new_slide(prs, tpl_content, "Dashboard (2/7): The Challenger, and a Crisis")
+s = new_slide(prs, tpl_content, "Dashboard (2/5): The Challenger, and a Crisis")
 picture(
     s,
     SCREENS / "episode_challenger.png",
@@ -1073,7 +938,7 @@ notes(
     "Left: switch the policy to the challenger and the supplier bars change completely. This is the visual evidence for the error analysis. Right: the crisis switch injects the LLM-written disruption for the whole run.",
 )
 
-s = new_slide(prs, tpl_content, "Dashboard (3/7): Before vs After the System")
+s = new_slide(prs, tpl_content, "Dashboard (3/5): Before vs After the System")
 picture(
     s,
     SCREENS / "before_after.png",
@@ -1128,113 +993,7 @@ notes(
     "Before = the shop orders the same fixed amount every day, tuned as carefully as every other baseline. After = the system's engine. Same 30 unseen runs. The honest reading: forecasting plus safety stock does the heavy lifting; the RL challenger also beats the fixed order but trails the engine.",
 )
 
-s = new_slide(prs, tpl_content, "Dashboard (4/7): Every Test Run, Not Just the Average")
-picture(
-    s,
-    SCREENS / "before_after.png",
-    CL,
-    CT - 0.05,
-    CW,
-    3.95,
-    crop=(370, 1140, 1540, 1530),
-    caption="Each dot is one of the 30 held-out test seeds, sorted by the “before” profit",
-)
-text(
-    s,
-    CL,
-    CT + 4.05,
-    CW,
-    1.4,
-    [
-        {
-            "runs": [
-                ("Why show every run? ", {"bold": True, "color": GREEN_D}),
-                (
-                    "An average can hide losses. The engine (green) is above the fixed order (grey) on 30 of 30 seeds; the RL challenger (pink) is above it on 29 of 30.",
-                    {},
-                ),
-            ],
-            "size": 16,
-            "bullet": True,
-            "space": 6,
-        },
-        {
-            "runs": [
-                ("One weak run is visible too: ", {"bold": True, "color": PINK}),
-                (
-                    "the lone pink dot far below the others is a seed where the challenger did badly.",
-                    {},
-                ),
-            ],
-            "size": 16,
-            "bullet": True,
-        },
-    ],
-)
-notes(
-    s,
-    "Every dot is one test seed, sorted by the before profit. The point of this chart is that the improvement is consistent, not an average hiding losses.",
-)
-
-s = new_slide(prs, tpl_content, "Dashboard (5/7): One Run, Day by Day")
-picture(
-    s,
-    SCREENS / "before_after.png",
-    CL,
-    CT - 0.05,
-    8.4,
-    4.0,
-    crop=(370, 1535, 1540, 2085),
-    caption="Seed 500: cumulative profit and stockouts, before vs after",
-)
-text(
-    s,
-    CL + 8.7,
-    CT,
-    3.73,
-    5.3,
-    [
-        {"t": "Reading the charts", "size": 18, "bold": True, "color": GREEN_D, "space": 6},
-        {
-            "t": "Left: profit builds up over 180 days. Green (engine) pulls away from grey (fixed order).",
-            "size": 15,
-            "bullet": True,
-            "space": 6,
-        },
-        {
-            "t": "Right: product-days out of stock, counted up. The engine stays low; the fixed order and the challenger climb.",
-            "size": 15,
-            "bullet": True,
-            "space": 6,
-        },
-        {
-            "t": "The charts follow the sidebar’s seed and crisis switch, so before and after can be compared live under any condition.",
-            "size": 15,
-            "bullet": True,
-        },
-    ],
-)
-text(
-    s,
-    CL,
-    CT + 4.15,
-    8.4,
-    1.2,
-    [
-        {
-            "t": "On this single run the challenger runs out of stock more than the engine: a visible example of its weakness.",
-            "size": 15,
-            "color": PINK,
-            "bold": True,
-        }
-    ],
-)
-notes(
-    s,
-    "Live demo option: flip the crisis switch in the sidebar and watch both charts redraw for all three policies.",
-)
-
-s = new_slide(prs, tpl_content, "Dashboard (6/7): Explain a Decision")
+s = new_slide(prs, tpl_content, "Dashboard (4/5): Explain a Decision")
 picture(
     s,
     SCREENS / "explain.png",
@@ -1292,7 +1051,7 @@ notes(
     "This is the explainer in action, live. The explanation is a restatement of computed facts, not an account of the neural network's reasoning, and we say so explicitly.",
 )
 
-s = new_slide(prs, tpl_content, "Dashboard (7/7): Policy Comparison and Robustness")
+s = new_slide(prs, tpl_content, "Dashboard (5/5): Policy Comparison and Robustness")
 picture(
     s,
     SCREENS / "comparison.png",
