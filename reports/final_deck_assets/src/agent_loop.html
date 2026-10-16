@@ -14,14 +14,14 @@
   <div class="sub">Every day the agent sees the shop, picks orders, and is scored on that day&rsquo;s profit.</div>
   <div class="row">
     <div class="box k"><span class="chip">Environment</span><h3>The simulated shop</h3>
-      <ul><li>10 products, 3 suppliers, shared 20,000-unit warehouse</li><li>Random customers, delays, partial shipments, outages</li><li>Crises injected from the LLM generator</li><li>180 days per episode, first 14 not scored</li></ul></div>
+      <ul><li>10 products, 3 suppliers, shared 20,000-unit warehouse</li><li>Random customers, delays, partial shipments, outages</li><li>Crises added from the LLM generator</li><li>180 days per episode, first 14 not scored</li></ul></div>
     <div class="mid">
-      <div class="lbl"><b>State &rarr;</b>88 numbers: stock, stock on the way, days of cover, recent demand, season, supplier status</div>
-      <div class="lbl"><b>&larr; Action</b>per product: 1 of 21 options<br>(7 quantity levels &times; 3 suppliers)</div>
-      <div class="lbl"><b>&larr; Reward</b>that day&rsquo;s profit, scaled and clipped</div>
+      <div class="lbl"><b>What it sees &rarr;</b>88 numbers: stock, stock on the way, days of cover, recent demand, season, supplier status</div>
+      <div class="lbl"><b>&larr; What it does</b>per product: 1 of 21 options<br>(7 quantity levels &times; 3 suppliers)</div>
+      <div class="lbl"><b>&larr; Score</b>that day&rsquo;s profit</div>
     </div>
-    <div class="box p"><span class="chip">Agent</span><h3>MaskablePPO</h3>
-      <ul><li>Small network, two layers of 256 units, trains on CPU</li><li>Learning rate 5e-5, 2 million training steps</li><li>Quantity and supplier chosen <b>together</b>, so training is 2.8&times; faster</li></ul>
-      <div class="mask"><b>Action masking:</b> offline suppliers and orders too big for the warehouse are blocked <i>before</i> the agent chooses. Worth about 3&times;.</div></div>
+    <div class="box p"><span class="chip">Agent</span><h3>RL agent (MaskablePPO)</h3>
+      <ul><li>Small neural network; trains on a normal computer (CPU)</li><li>Trained for 2 million steps</li><li>Quantity and supplier chosen <b>together</b>: 2.8&times; faster to train</li></ul>
+      <div class="mask"><b>Masking:</b> impossible choices (an offline supplier, an order too big for the warehouse) are blocked <i>before</i> the agent chooses. Worth about 3&times;.</div></div>
   </div>
 </div></body></html>

@@ -13,11 +13,11 @@
   <h1>The explainer: facts in, checked sentences out</h1>
   <div class="sub">The LLM is never asked <i>why</i>. It only restates what the simulator computed, and every number is checked.</div>
   <div class="flow">
-    <div class="box k"><span class="chip">1 Facts</span><h3>Simulator facts</h3><ul><li>stock, orders on the way</li><li>days of cover, recent demand</li><li>what was ordered, from whom</li><li>supplier lead time, reliability</li></ul></div>
+    <div class="box k"><span class="chip">1 Facts</span><h3>Simulator facts</h3><ul><li>stock, orders on the way</li><li>days of cover, recent demand</li><li>what was ordered, from whom</li><li>supplier delivery time, reliability</li></ul></div>
     <div class="gap">&#10140;</div>
-    <div class="box b"><span class="chip">2 LLM</span><h3>Writes 2&ndash;3 sentences</h3><ul><li>3 free models tried in order</li><li>retry and back-off on rate limits</li><li>forbidden: inventing causes</li></ul></div>
+    <div class="box b"><span class="chip">2 LLM</span><h3>Writes 2&ndash;3 sentences</h3><ul><li>3 free models tried in order</li><li>tries again if a model is busy</li><li>not allowed to invent reasons</li></ul></div>
     <div class="gap">&#10140;</div>
-    <div class="box a"><span class="chip">3 Check</span><h3>Grounding check</h3><ul><li>every number must appear in the facts</li><li>required fields must be present</li></ul></div>
+    <div class="box a"><span class="chip">3 Check</span><h3>Number check</h3><ul><li>every number must appear in the facts</li><li>all key details must be included</li></ul></div>
     <div class="gap">&#10140;</div>
     <div class="box g"><span class="chip">4 Delivered</span><h3>Shown to the manager</h3><ul><li><b>pass:</b> the LLM text</li><li><b>fail:</b> a fixed template instead</li></ul></div>
   </div>
@@ -26,6 +26,6 @@
       <p>&ldquo;Product 21212 holds 2,438 units in stock with nothing on order, providing 14.5 days of cover at the typical daily demand of 169 units. Recent demand has averaged 89 units over the last seven days. No order was placed today.&rdquo;</p></div>
     <div><h4>Measured on 30 real decisions</h4>
       <p>Raw LLM output: <span class="bad">5 of 30 contained an invented number</span> (83% accurate).<br>
-      After the check: <span class="ok">0 of 30 reached the user</span> (100% delivered accuracy).</p></div>
+      After the check: <span class="ok">none of the 5 reached the user</span> (100% correct).</p></div>
   </div>
 </div></body></html>
