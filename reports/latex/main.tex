@@ -1,7 +1,5 @@
 \documentclass[10pt,twocolumn]{article}
 
-% Layout follows the reference paper (pdfTeX, two columns, numbered sections,
-% numeric citations, hyperref, table captions below, manual bibliography).
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{times}
@@ -18,16 +16,14 @@
 \setlength{\abovecaptionskip}{4pt}
 \setlength{\belowcaptionskip}{0pt}
 
-% Money is shown in rupees. The simulator works in pounds because the data is
-% from a UK shop; every figure here is converted at 1 GBP = 105 INR (one line,
-% configs/display.yaml, in the code). Rs. is used so the file compiles under
-% plain pdfLaTeX without a rupee glyph.
+% Rupee amounts: the simulator works in pounds, and every amount below is
+% converted at 1 GBP = 105 INR. "Rs." keeps the file compilable with plain pdfLaTeX.
 \newcommand{\Rs}{\mbox{Rs.}\,}
 \newcommand{\lakh}{\,lakh}
 
 \title{\textbf{Explainable Supply Chain Optimization:\\
-Reinforcement Learning, Tuned Classical Baselines, and a\\
-Number-Checked Language-Model Explainer for Retail Inventory}}
+Reinforcement Learning Against Tuned Classical Policies,\\
+with a Number-Checked Language-Model Explainer}}
 
 \author{%
   Koushik \quad Santosh \quad Srinith \quad Dharani Pratap\\[4pt]
@@ -41,140 +37,137 @@ Number-Checked Language-Model Explainer for Retail Inventory}}
 % ------------------------------------------------------------------ abstract
 \begin{abstract}
 \noindent
-A retailer must decide every day, for every product, how much to order and from
-which supplier. We build a complete decision-support system for this problem
-and evaluate it against tuned classical policies. A simulator calibrated on
-1,067,371 real sales records provides the environment. A MaskablePPO agent
-chooses quantity and supplier jointly. Four textbook policies serve as
-baselines, each tuned on separate seeds. A language model explains each
-decision in business English and writes supply-chain crises for stress
-testing. All results are scored on 30 held-out seeds with paired tests.
+Every day a retailer has to decide how much of each product to order and which
+supplier to use. We built a decision-support system for this problem and tested
+a reinforcement learning agent against four classical inventory policies that
+we tuned ourselves. The system has a simulator calibrated on 1,067,371 real
+sales records, a MaskablePPO agent that picks quantity and supplier together,
+the four classical policies, and a language model that explains each decision
+and also writes crisis scenarios for testing. Every method was scored on the
+same 30 held-out simulation runs.
 
-The tuned agent earns \Rs 79.7\lakh{} per 180-day run, which is 90.8\% of the
-best classical policy (\Rs 87.8\lakh{}) and above two of the four classical
-policies. The remaining gap is statistically significant (paired $t=-6.45$,
-$n=30$, 95\% CI [5.5, 10.6]\lakh{}). We trace it to supplier fragmentation:
-the agent pays about twice the ordering fees, because its observation
-contains no ordering history. Action masking improves the agent roughly
-threefold, and hyperparameter tuning closes 38\% of what remains. Training
-on LLM-generated crises does \emph{not} improve robustness (paired
-$t=+1.69$, not significant), whereas plain tuning does. For the explainer,
-5 of 30 raw LLM outputs contained a number the simulator never produced; a
-grounding check caught all 5, so delivered accuracy is 100\% against 83\% raw.
-We report these negative results as findings, because every comparison was
-designed so that a positive result would have meant something.
+The tuned agent earns \Rs 79.7\lakh{} per 180-day run. That is 90.8\% of the
+best classical policy (\Rs 87.8\lakh{}), and it beats two of the four classical
+policies. The gap to the best one is modest but real (paired $t=-6.45$,
+$n=30$, 95\% CI 5.5 to 10.6\lakh{}). Most of it comes from ordering fees: the
+agent splits its orders across suppliers and pays about twice as much in fees,
+and nothing in its inputs tells it what it ordered earlier. Action masking made
+the agent about three times better, and tuning closed 38\% of the gap that was
+left. Training on LLM-written crises did not make the agent more robust
+($t=+1.69$, not significant), while plain tuning did. For the explainer, 5 of
+30 raw LLM outputs contained a number the simulator never produced. A number
+check caught all five, which lifts the accuracy of what the user sees from 83\%
+to 100\%.
 \end{abstract}
 
 % ------------------------------------------------------------------ 1 intro
 \section{Introduction}
 
-Retail replenishment can fail in two directions that cost different amounts.
-Ordering too much ties up money, fills a shared warehouse, and leaves seasonal
-goods unsold. Ordering too little loses the sale for good. Supplier choice
-adds a second decision: one supplier is cheap but slow, one is fast but dear,
-and one looks reasonable but ships only 80\% of an order and goes offline most
-often. Because today's order becomes next week's stock, the task is a
-sequential decision problem.
+A shop that orders badly loses money in two different ways. If it orders too
+much, cash sits in the warehouse, storage costs add up, and seasonal items end
+up unsold. If it orders too little, customers go elsewhere and the sale is
+gone. Choosing a supplier makes this harder. One supplier is cheap but slow,
+one is quick but expensive, and a third looks fine on paper but ships only 80\%
+of what was asked for and goes offline more often than the others. Since
+today's order turns into next week's stock, each decision changes the
+situation for the next one.
 
-Classical rules such as $(s,S)$, EOQ with a reorder point, the newsvendor
-model, and forecast-plus-safety-stock treat each product on its own and
-assume well-behaved demand. In our data, daily demand has a variance about
-216 times its mean, far beyond what a Poisson model allows. Reinforcement
-learning (RL) can in principle learn a joint ordering and sourcing policy
-that a formula cannot express, and deep RL has been tried on inventory
-problems with mixed results against tuned heuristics \cite{gijsbrechts,beer}. A second
-obstacle is trust: a buyer will not act on a recommendation they cannot
-interpret.
+The usual tools here are rules like $(s,S)$, EOQ with a reorder point, the
+newsvendor model, and forecasting with safety stock. They look at one product
+at a time and assume demand behaves reasonably. In our data it does not: the
+variance of daily demand is about 216 times its mean, much more than a Poisson
+model would give. Reinforcement learning (RL) can in principle learn a combined
+ordering and sourcing policy that no simple formula captures, and earlier work
+has tried deep RL on inventory problems with mixed results against tuned rules
+\cite{gijsbrechts,beer}. There is also a practical problem. A buyer is unlikely
+to follow a recommendation that nobody can explain.
 
-This paper therefore tests a hypothesis rather than assuming it: that an RL
-agent can match or beat tuned classical policies, and that an LLM can make its
-decisions understandable without making things up. We keep the baselines
-strong, keep the test seeds separate, and report the result whichever way it
-falls. Our contributions are:
+We wanted to check two things: whether an RL agent can match or beat tuned
+classical policies, and whether an LLM can make the agent's decisions
+understandable without inventing facts. We kept the baselines strong, kept the
+test runs separate from everything used for tuning, and decided in advance to
+report the result whichever way it came out. This paper makes the following
+contributions.
 \begin{enumerate}
-  \item An end-to-end system: a calibrated simulator, a MaskablePPO agent
-    with a joint quantity--supplier action, four tuned classical baselines,
-    an LLM explainer, an LLM crisis generator, and a recommend-only dashboard
+  \item A complete system with a calibrated simulator, a MaskablePPO agent that
+    chooses quantity and supplier jointly, four tuned classical baselines, an
+    LLM explainer, an LLM crisis generator, and a recommend-only dashboard
     (Sections 3--5).
-  \item A fair comparison on 30 held-out seeds with paired significance
-    tests, showing that the tuned agent reaches 90.8\% of the best classical
-    policy and that the remaining \Rs 8.1\lakh{} gap is real and traceable to
-    a specific cause (Sections 6.1 and 7).
-  \item Two controlled ablations: action masking is worth about $3\times$ and
-    tuning closes 38\% of the rest, while training on LLM-generated crises
+  \item A fair comparison on 30 held-out runs with paired tests. The tuned
+    agent reaches 90.8\% of the best classical policy, and the remaining
+    \Rs 8.1\lakh{} gap can be traced to one specific cause (Sections 6.1
+    and 7).
+  \item Two controlled ablations. Action masking is worth about $3\times$ and
+    tuning closes 38\% of what is left, but training on LLM-generated crises
     does not improve robustness (Sections 6.2 and 6.3).
-  \item A measurement of the explainer showing that the grounding check is
-    essential: raw accuracy is 83\%, delivered accuracy 100\% (Section 6.4).
-  \item A test of whether the demand pattern is stable across the two years
-    of data, answering the concern that the data is old (Section 6.5).
+  \item A measurement of the explainer showing that its number check matters:
+    83\% of raw outputs were correct, against 100\% of delivered ones
+    (Section 6.4).
 \end{enumerate}
 
 % --------------------------------------------------------------- 2 related
 \section{Related Work}
 
 \paragraph{Deep RL for inventory.}
-Oroojlooyjadid et al.\ \cite{beer} apply a deep Q-network to the beer game and report
-performance at or above base-stock policies under cooperation, in a serial
-chain with a single product and no sourcing choice. Gijsbrechts et al.\ \cite{gijsbrechts}
-apply an actor-critic method to lost-sales and dual-sourcing problems and find
-it competitive with tuned heuristics but not clearly superior, at a high
-tuning cost. Boute et al.\ \cite{boute} survey the area and name fair benchmarking and
-interpretability as open problems. Our setting adds joint quantity and
-supplier selection under one shared warehouse, and we treat fair benchmarking
-as a design requirement.
+Oroojlooyjadid et al.\ \cite{beer} trained a deep Q-network on the beer game
+and found it matched or beat base-stock policies when the players cooperate.
+That game has one product in a serial chain and no choice of supplier.
+Gijsbrechts et al.\ \cite{gijsbrechts} used an actor-critic method on
+lost-sales and dual-sourcing problems. It came out about as good as well-tuned
+heuristics, not clearly better, and it needed a lot of tuning. Boute et al.\
+\cite{boute} review the field and list fair benchmarking and interpretability
+among the open problems. Our setting adds the joint choice of quantity and
+supplier under one shared warehouse, and we treat fair benchmarking as a
+requirement of the study.
 
 \paragraph{Policy optimization and action masking.}
-Proximal Policy Optimization \cite{ppo} optimizes a clipped surrogate objective and
-is a stable on-policy default. Huang and Ontañón \cite{masking} show that invalid-action
-masking is a valid policy gradient and scales to large action spaces, which
-is what makes our $21^{10}\approx 1.7\times10^{13}$-option daily action
-tractable. We use the Stable-Baselines3 ecosystem \cite{sb3}.
+Proximal Policy Optimization \cite{ppo} limits how far each update can move the
+policy and is a common stable default. Huang and Ontañón \cite{masking} showed
+that masking invalid actions is a valid policy-gradient method and works with
+large action spaces. This is what makes our daily action space of
+$21^{10}\approx 1.7\times10^{13}$ combinations manageable. We build on the
+Stable-Baselines3 library \cite{sb3}.
 
 \paragraph{Retail demand data.}
-Chen et al.\ \cite{chen} study data mining on online-retail transactions, the same
-family of data as the UCI Online Retail II set \cite{uci} that we calibrate on.
+Chen et al.\ \cite{chen} applied data mining to online-retail transactions of
+the same kind as the UCI Online Retail II set \cite{uci} that we use.
 
 \paragraph{Explanation.}
-Learned policies output a number, not a reason, so they rarely reach a
-decision-maker. We do not claim to open the network. Instead the LLM only
-restates facts the simulator computed, and a check rejects any number it
-invents (Section 4.4). To our knowledge the combination of an RL inventory
-agent, a number-checked LLM explainer, and an LLM that generates the
-scenarios used to test it has not been evaluated together; we make no claim
-beyond this single setting.
+A trained policy outputs a number and no reason, which is one reason such
+policies rarely reach a decision-maker. We do not try to open the network.
+The LLM only restates facts that the simulator computed, and a check rejects
+any number it makes up (Section 4.4). As far as we know, an RL inventory agent,
+a number-checked LLM explainer, and an LLM that writes the test scenarios have
+not been evaluated together before. We claim this only for our own setting.
 
 % ------------------------------------------------------------- 3 task setup
 \section{Problem Setup}
 
 \paragraph{Data.}
-UCI Online Retail II \cite{uci} holds 1,067,371 sales records from a UK online gift
-shop, December 2009 to December 2011. Cancelled orders, returns, negative
-quantities, and missing product codes are removed, and sales are aggregated to
-one row per product per day. Saturdays are dropped because the shop never
-traded on them; filling them with zeros would teach a false weekly dip. We
-select ten products on purpose to span three demand types: four steady
-(coefficient of variation 1.02--1.20), three moderate (1.29--1.65), and three
-bursty (2.09--2.34). Only data before 1 June 2011 builds the simulator. The
-agent never sees the records: we measure mean demand, variability, weekday
-pattern, month pattern, and zero-sales frequency, and the simulator
-reproduces them with a Gamma--Poisson (negative binomial) demand model.
-
-\paragraph{A rejected alternative.}
-A newer Kaggle retail-inventory dataset (2022--2024) has no weekday and no
-seasonal pattern and is synthetic; we rejected it. Newer but synthetic is
-worse than older but real for calibrating demand shape.
+The UCI Online Retail II dataset \cite{uci} has 1,067,371 sales records from a
+UK online gift shop. We removed cancelled orders, returns, negative quantities
+and rows with no product code, and summed the sales into one row per product
+per day. Saturdays are left out because the shop never traded on them, and
+filling them with zeros would create a weekly dip that is not real. We picked
+ten products on purpose so that they cover three kinds of demand: four steady
+ones (coefficient of variation 1.02 to 1.20), three moderate ones (1.29 to
+1.65) and three bursty ones (2.09 to 2.34). The agent never sees the raw
+records. We measure five things from them (mean demand, variability, weekday
+pattern, month pattern and how often a day has no sales), and the simulator
+recreates demand from those with a Gamma--Poisson (negative binomial) model.
 
 \paragraph{Environment.}
-The environment is a Gymnasium simulator of 10 products, 3 suppliers, and
-180 days per run, with a 14-day warm-up that is not scored. All products share
-one warehouse of 20,000 units; deliveries beyond capacity are refused and
-written off. Each day proceeds in order: deliveries arrive; demand is drawn and
-adjusted for weekday and month; sales are made, with any shortfall a lost sale
-carried as backlog and penalized; orders are placed (after demand, as a real
-buyer orders once the day is known); profit is counted. Leftover stock at the
-end is valued at 60\% of cost, and storage costs 0.15\% of item cost per day.
-The suppliers (Table~\ref{tab:suppliers}) are invented, since no public
-dataset records supplier terms; none dominates.
+The environment is a Gymnasium simulator with 10 products, 3 suppliers and
+180 days per run. The first 14 days are a warm-up and are not scored. All
+products share one warehouse of 20,000 units, and any delivery that does not
+fit is refused and written off. A day runs in this order: deliveries arrive,
+demand is drawn (adjusted for weekday and month), sales are made, orders are
+placed, and profit is counted. Unmet demand becomes a lost sale with a penalty
+and is carried over as backlog. Orders come after demand because a real buyer
+places them once the day is known. Stock left at the end is valued at 60\% of
+its cost, and storage costs 0.15\% of item cost per day. The suppliers
+(Table~\ref{tab:suppliers}) are our own invention, because no public dataset
+records supplier terms. None of them is better than the others on every count.
 
 \begin{table}[t]
 \centering\small
@@ -188,119 +181,124 @@ RapidTrade  & +35\% & 1--3 d & 98\% & \Rs 4,725 \\
 MidWay      & +15\% & 3--5 d & 80\% & \Rs 3,150 \\
 \bottomrule
 \end{tabular}
-\caption{The three suppliers. Minimum orders are 100, 20, and 50 units. MidWay
-goes offline most often, RapidTrade almost never.}
+\caption{The three suppliers. Minimum orders are 100, 20 and 50 units. MidWay
+goes offline most often and RapidTrade almost never.}
 \label{tab:suppliers}
 \end{table}
 
 \paragraph{Decision and objective.}
-Each day, for each product, one of $7\times3=21$ options is chosen: a quantity
-level and a supplier. Over 10 products this gives $21^{10}\approx1.7\times10^{13}$
-daily combinations. The goal is to maximize profit,
+Each day, for each product, the system picks one of $7\times3=21$ options:
+a quantity level and a supplier. Across 10 products that is
+$21^{10}\approx1.7\times10^{13}$ combinations per day. The aim is to maximise
+profit,
 \begin{equation}\begin{split}
 \text{profit}={}&\text{sales}-\text{purchases}-\text{storage}\\
 &-\text{fees}-\text{stockout}-\text{overflow}.
 \end{split}\end{equation}
 
-\paragraph{Splits.}
-Three disjoint seed groups are used: seeds 100--111 tune the classical
-policies, seeds 900--905 select checkpoints during training, and seeds
-500--529 are used only for reporting. Every method faces the same customers and
-delivery delays on each reporting seed, so comparisons are paired.
+\paragraph{Seed groups.}
+We use three separate groups of random seeds. Seeds 100 to 111 tune the
+classical policies, seeds 900 to 905 pick the best checkpoint during training,
+and seeds 500 to 529 are used only for the final numbers. On each of those
+final seeds every method sees the same customers and the same delivery delays,
+so comparisons are paired.
 
 \paragraph{Metrics.}
-There is no ground-truth label in profit optimization, so classification
-accuracy is not defined. We report: (i) mean profit per 180-day run;
-(ii) relative profit, the agent's profit divided by the best classical profit;
-(iii) fill rate, the share of demand served; (iv) ordering, stockout, and
-overflow costs; and, for the explainer, (v) \emph{raw accuracy} (grounded and
-complete) and \emph{delivered accuracy} (after the check).
+Profit optimisation has no ground-truth label, so classification accuracy does
+not apply. We report mean profit per 180-day run, relative profit (the agent's
+profit divided by the best classical profit), fill rate (the share of demand
+served), and the ordering, stockout and overflow costs. For the explainer we
+report \emph{raw accuracy} (every number real and all key details present) and
+\emph{delivered accuracy} (after the number check).
 
 % ------------------------------------------------------------------ 4 method
 \section{Method}
 
-\subsection{System Pipeline}
+\subsection{System Overview}
 
-The system has five parts: the simulator; a MaskablePPO agent; four tuned
-classical policies; an LLM explainer; and an LLM crisis generator. A Streamlit
-dashboard presents them in shadow mode: the best classical policy is the
-\emph{engine}, the agent runs alongside as a \emph{challenger} that is scored
-but never acts, and every decision can be explained. The dashboard recommends
-and never places an order.
+The system has five parts: the simulator, a MaskablePPO agent, four tuned
+classical policies, an LLM explainer and an LLM crisis generator. A Streamlit
+dashboard ties them together in what we call shadow mode. The best classical
+policy is the \emph{engine}. The agent runs next to it as a \emph{challenger}
+that is scored but never acts. Any decision can be explained on request. The
+dashboard only recommends and never places an order.
 
 \subsection{Agent and Objective}
 
-The observation has 88 numbers: for each product, stock on hand, stock on
-order, days of cover, the 7-day mean demand, demand variability, trend, and
-backlog; plus weekday, time of year, and each supplier's availability, lead
-time, and recent reliability. The action is a \texttt{MultiDiscrete} vector of
-ten entries over 21 joint options. Quantity and supplier are one joint choice,
-not two, which trains $2.8\times$ faster and reflects that ordering a large
-quantity is only sensible from a supplier able to deliver it. The reward is the
-day's profit, scaled and clipped, and zero during warm-up.
+The agent sees 88 numbers. For each product these are stock on hand, stock on
+order, days of cover, the 7-day mean and variability of demand, the demand
+trend and the backlog. On top of that come the weekday, the time of year, and
+each supplier's availability, lead time and recent reliability. The action is a
+vector of ten entries, one per product, each over the 21 joint options.
+Quantity and supplier are chosen together rather than separately. This trained
+$2.8\times$ faster, and it matches how the decision works, since a large order
+only makes sense from a supplier that can deliver it. The reward is the day's
+profit, scaled and clipped, and it is zero during the warm-up.
 
-We use MaskablePPO. PPO maximizes the clipped surrogate
+We use MaskablePPO. PPO maximises the clipped surrogate objective
 \begin{equation}
 L^{\text{CLIP}}(\theta)=\hat{\mathbb{E}}_t\!\left[\min\!\big(\rho_t\hat A_t,\;
 \text{clip}(\rho_t,1-\epsilon,1+\epsilon)\hat A_t\big)\right],
 \end{equation}
-with $\rho_t=\pi_\theta(a_t|s_t)/\pi_{\theta_\text{old}}(a_t|s_t)$. Masking
+where $\rho_t=\pi_\theta(a_t|s_t)/\pi_{\theta_\text{old}}(a_t|s_t)$. Masking
 adds a vector $m$ to the logits $z$ before the softmax,
 \begin{equation}
 \pi_\theta(a\mid s)=\operatorname{softmax}(z+m)_a,\quad
 m_a=\begin{cases}0&\text{legal}\\-\infty&\text{illegal,}\end{cases}
 \end{equation}
-so offline suppliers and orders too large for the warehouse are never sampled.
-The network is small (two layers of 128 or 256 units) and trains on CPU.
+so an offline supplier or an order too large for the warehouse can never be
+sampled. The network is small (two layers of 128 or 256 units) and trains on a
+CPU.
 
 \subsection{Classical Baselines}
 
-Four textbook policies are implemented over the same 21 options per product as
-the agent, so none has finer control than another: $(s,S)$, EOQ with a reorder
-point, the newsvendor model, and forecast plus safety stock. Each is tuned by
-grid search on the 12 tuning seeds. Tuning matters: widening the search lifted
-the best policy from \Rs 69.7\lakh{} to \Rs 89.2\lakh{} on the tuning seeds,
-and an untuned baseline would have made the agent look better than it is.
+We implemented four textbook policies that choose from the same 21 options per
+product as the agent, so none of them has finer control than the others:
+$(s,S)$, EOQ with a reorder point, the newsvendor model, and forecasting with
+safety stock. Each was tuned with a grid search on the 12 tuning seeds. This
+step matters. Widening the search lifted the best policy from \Rs 69.7\lakh{}
+to \Rs 89.2\lakh{} on the tuning seeds, and an untuned baseline would have made
+the agent look better than it is.
 
-\subsection{LLM Explainer with a Grounding Check}
+\subsection{LLM Explainer and the Number Check}
 
-The LLM is \emph{never asked why} a decision was made. The agent's real reason
-is a neural network, and any ``because'' the LLM wrote would be a plausible
-story rather than the cause. The LLM instead receives a set of facts $F$
-computed by the simulator (stock, orders in transit, days of cover, recent
-demand, what was ordered and from whom, that supplier's lead time and
-reliability) and writes two or three sentences. Let $N(x)$ denote the set of
-numbers appearing in text $x$. The output $y$ is accepted only if
-$N(y)\subseteq N(F)$ and its required fields are present; otherwise a
-deterministic template is used. Three free models are tried in order
-(\texttt{gemma-4-31b-it}, \texttt{glm-5.2}, \texttt{nemotron-3-ultra-550b-a55b})
-through OpenRouter, with retry and back-off because free endpoints rate-limit.
+We never ask the LLM why a decision was made. The agent's real reason sits
+inside a neural network, so any ``because'' from the LLM would be a plausible
+story and not the cause. Instead the LLM is given a set of facts $F$ that the
+simulator computed (stock, orders in transit, days of cover, recent demand,
+what was ordered and from whom, and that supplier's lead time and reliability)
+and writes two or three sentences from them. Let $N(x)$ be the set of numbers
+in a text $x$. We accept the output $y$ only if $N(y)\subseteq N(F)$ and the key
+details are present. Otherwise a fixed template is shown. Three free models are
+tried in turn (\texttt{gemma-4-31b-it}, \texttt{glm-5.2},
+\texttt{nemotron-3-ultra-550b-a55b}) through OpenRouter, with retries, because
+the free endpoints often hit rate limits.
 
-\subsection{Crisis Generator and Curriculum}
+\subsection{Crisis Generator and Training on Crises}
 
-The LLM is asked for realistic supply-chain crises and returns scenarios such
-as a demand spike on four products, a supplier outage, a lead-time delay, and a
-cost surge, which overlap in time. Nothing it writes is trusted: the scenario
-type must be known, supplier and product indices must exist (out-of-range
-product numbers are dropped, not wrapped), values are clamped to safe ranges,
-and windows are moved inside the 180-day run. Six deliberately malformed inputs
-were all corrected or rejected.
+We ask the LLM for realistic supply-chain crises. It returns scenarios such as a
+demand spike on four products, a supplier outage, a delivery delay and a cost
+increase, and these overlap in time. We do not trust the output. The scenario
+type has to be one we know, supplier and product numbers have to exist (invalid
+product numbers are dropped, not wrapped around), values are clamped to safe
+ranges, and the time window is moved inside the 180 days. We tested this with
+six deliberately broken inputs, and each was either corrected or rejected.
 
-For curriculum training, 16 crisis sets built from 19 scenarios were saved and
-split 10/6. The agent trains on a random training set at the start of each
-run and is tested on the 6 it never saw. Its seed, settings, and training
-length match the untuned agent, so crisis exposure is the only difference.
+For training on crises we saved 16 crisis sets built from 19 scenarios and
+split them 10 for training and 6 for testing. At the start of each run the agent
+trains on a random set from the training part, and it is tested only on the 6
+it has never seen. Its seed, settings and number of steps match the untuned
+agent, so crisis exposure is the only difference.
 
 % --------------------------------------------------------- 5 experimental
 \section{Experimental Setup}
 
 \paragraph{Training.}
 All agents use MaskablePPO. The untuned agent trains for 1M steps with default
-settings. For the hyperparameter search, eight configurations received a short
-250,000-step trial, and the best two were trained to 2M steps on Kaggle
-(about 4.8 hours). The winning configuration is in Table~\ref{tab:hparams}.
-Checkpoints are chosen on seeds 900--905 and results are reported on seeds
-500--529.
+settings. For the hyperparameter search we ran eight configurations for 250,000
+steps each, then trained the best two to 2M steps on Kaggle. Each long run took
+about 1.5 hours, and the whole search about 4.8 hours. Table~\ref{tab:hparams} lists the winning configuration. Checkpoints
+are chosen on seeds 900 to 905 and results come from seeds 500 to 529.
 
 \begin{table}[t]
 \centering\small
@@ -316,17 +314,50 @@ Network & $[256,256]$ \\
 Training steps & 2M \\
 \bottomrule
 \end{tabular}
-\caption{Winning hyperparameters of the 8-configuration search.}
+\caption{Winning hyperparameters from the 8-configuration search.}
 \label{tab:hparams}
 \end{table}
 
-The search chose the lowest learning rate and the larger network, which
-supports the diagnosis that earlier runs were unstable because they learned
-too fast, not because the network was too small.
+The search picked the lowest learning rate and the larger network. That fits
+what we suspected: the earlier runs were unstable because they learned too
+fast, and the network size was not the problem.
+
+\paragraph{Training logs.}
+Figure~\ref{fig:term-train} shows the console output of a short 30,000-step
+training run, which we made only to show what the training console reports. The
+models reported in this paper were trained for 1M and 2M steps. Under it,
+Figure~\ref{fig:term-hist} shows the checkpoint evaluations printed for the
+tuned 2M-step run, and Figure~\ref{fig:term-sweep} shows the summary of the
+hyperparameter search.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/terminal_train.png}
+\caption{Terminal output of a short training run (30,000 steps) with the
+project's training script. The reported models were trained for 1M and 2M
+steps.}
+\label{fig:term-train}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{figures/terminal_history.png}
+\caption{Checkpoint evaluations of the tuned 2M-step agent, read from its saved
+training history (profit per 180-day run on the checkpoint seeds).}
+\label{fig:term-hist}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{figures/terminal_sweep.png}
+\caption{Summary of the 8-configuration hyperparameter search, read from the
+saved sweep results.}
+\label{fig:term-sweep}
+\end{figure*}
 
 \paragraph{Statistics.}
-We use paired $t$-tests on per-seed differences ($n=30$), and report the 95\%
-interval of the mean difference.
+We compare methods with paired $t$-tests on the per-seed differences ($n=30$)
+and report the 95\% interval of the mean difference.
 
 % ----------------------------------------------------------------- 6 results
 \section{Results}
@@ -334,15 +365,15 @@ interval of the mean difference.
 \subsection{Main Comparison}
 
 Table~\ref{tab:main} and Figure~\ref{fig:policies} compare all methods on the
-30 held-out seeds. The best classical policy, forecast plus safety stock,
-earns \Rs 87.8\lakh{}. The tuned agent earns \Rs 79.7\lakh{}, which is
-\textbf{90.8\%} of it. The difference is \Rs 8.1\lakh{} (paired
-$t=-6.45$, $n=30$, $p<0.001$, 95\% CI [5.5, 10.6]\lakh{}); the classical
-policy wins on 26 of 30 seeds. The agent beats two of the four classical
-policies, EOQ and $(s,S)$. Against a fixed daily order, which is what a shop
-does without any system, the engine raises profit from \Rs 53.3\lakh{} to
-\Rs 87.8\lakh{} (+65\%) and wins on all 30 seeds; the agent also beats it on
-29 of 30.
+30 held-out seeds. The best classical policy, forecasting with safety stock,
+earns \Rs 87.8\lakh{}. The tuned agent earns \Rs 79.7\lakh{}, or
+\textbf{90.8\%} of that. The difference of \Rs 8.1\lakh{} is statistically
+clear (paired $t=-6.45$, $n=30$, $p<0.001$, 95\% CI 5.5 to 10.6\lakh{}), and the
+classical policy comes out ahead on 26 of the 30 seeds. The agent does beat two
+of the four classical policies, EOQ and $(s,S)$. A shop with no system would
+simply order the same amount every day. Compared with that, the engine raises
+profit from \Rs 53.3\lakh{} to \Rs 87.8\lakh{} (+65\%) and wins on all 30
+seeds. The agent beats the fixed order on 29 of 30.
 
 \begin{table*}[t]
 \centering\small
@@ -362,26 +393,27 @@ RL agent, no masking, 1M steps     & 23.7 & 9.0 & 94.8\% & 14.7 & 11.3 \\
 \bottomrule
 \end{tabular}
 \caption{Mean profit per 180-day run over 30 held-out seeds (500--529). Std is
-across seeds. All methods face identical customers and delays on each seed.
-Rupee values are converted at 1 GBP = \Rs 105.}
+the spread across seeds. All methods face the same customers and delays on each
+seed. Rupee amounts use 1 GBP = \Rs 105.}
 \label{tab:main}
 \end{table*}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/05_policy_comparison.png}
-\caption{Profit of every method on the 30 held-out seeds. Green: classical;
-red: RL. Error bars are standard deviation across seeds.}
+\caption{Profit of every method on the 30 held-out seeds. Green bars are
+classical policies and red bars are RL agents. Error bars show the standard
+deviation across seeds.}
 \label{fig:policies}
 \end{figure}
 
-\subsection{Ablation: What Each Step Was Worth}
+\subsection{Ablation: What Each Step Added}
 
-Table~\ref{tab:steps} isolates the two improvements. Action masking is the
-largest single lever (about $3\times$): without it, the agent spends most of
-training discovering that some choices are pointless. Tuning and longer
-training then close 38\% of the remaining gap, from \Rs 13.0\lakh{} to
-\Rs 8.1\lakh{}. Figure~\ref{fig:curves} shows the learning curves.
+Table~\ref{tab:steps} separates the two improvements. Action masking made by far
+the biggest difference, about $3\times$. Without it the agent spends most of its
+training finding out that some choices are pointless. Tuning and longer
+training then closed 38\% of the remaining gap, taking it from \Rs 13.0\lakh{}
+down to \Rs 8.1\lakh{}. The learning curves are in Figure~\ref{fig:curves}.
 
 \begin{table}[t]
 \centering\small
@@ -395,33 +427,33 @@ PPO, no masking     & 24.9 & 23.7 & $-64.1$ \\
 + tuning, 2M steps  & 86.2 & 79.7 & $\mathbf{-8.1}$ \\
 \bottomrule
 \end{tabular}
-\caption{Profit in \Rs lakh. Train: checkpoint-selection seeds (900--905);
-Test: held-out seeds (500--529); Gap: test profit minus the best classical
-policy.}
+\caption{Profit in \Rs lakh. Train: checkpoint seeds (900--905). Test: held-out
+seeds (500--529). Gap: test profit minus the best classical policy.}
 \label{tab:steps}
 \end{table}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/06_training_curves.png}
-\caption{Learning progress on the checkpoint-selection seeds. This is a
-picture of learning, not a result; reported scores use held-out seeds.}
+\caption{Learning progress on the checkpoint seeds. This shows how training
+went. The reported scores come from the held-out seeds.}
 \label{fig:curves}
 \end{figure}
 
 \subsection{Robustness to LLM-Generated Crises}
 
-Table~\ref{tab:robust} scores each method on 10 calm seeds and on 6
-held-out crisis sets the agents never trained on. Every method loses more than
-a third of its profit. The tuned agent, which never saw a crisis in training,
-has the highest crisis profit and the smallest drop of all agent versions.
+Table~\ref{tab:robust} scores each method on 10 normal seeds and on 6
+held-out crisis sets that the agents never trained on. Every method loses more
+than a third of its profit. The tuned agent never saw a crisis during
+training, yet it has the highest crisis profit and the smallest drop among the
+agents.
 
 \begin{table}[t]
 \centering\small
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{lccc}
 \toprule
-Method & Calm & Crisis & Drop \\
+Method & Normal & Crisis & Drop \\
 \midrule
 Forecast + safety stock & 87.4 & 53.7 & $-38.6\%$ \\
 \textbf{RL, tuned}      & 80.4 & \textbf{50.7} & $\mathbf{-37.0\%}$ \\
@@ -429,27 +461,27 @@ RL, untuned (control)   & 73.8 & 38.8 & $-47.5\%$ \\
 RL, crisis-trained      & 66.0 & 38.9 & $-41.1\%$ \\
 \bottomrule
 \end{tabular}
-\caption{Profit in \Rs lakh on calm seeds and on 6 unseen LLM-generated
+\caption{Profit in \Rs lakh on normal seeds and on 6 unseen LLM-generated
 crises.}
 \label{tab:robust}
 \end{table}
 
-\textbf{Curriculum training did not work.} The crisis-trained agent earns
-\Rs 38.9\lakh{} under crisis against the control's \Rs 38.8\lakh{}, and gave
-up \Rs 7.7\lakh{} of calm profit. Its smaller percentage drop is misleading:
-it drops less because it has less to lose. The paired difference is not
-significant ($t=+1.69$, $n=30$). We therefore show the percentage drop beside
-absolute profit, so that ``less to lose'' cannot pass for robustness.
+\textbf{Training on crises did not help.} The crisis-trained agent earns
+\Rs 38.9\lakh{} in a crisis, against \Rs 38.8\lakh{} for the control, and it
+gave up \Rs 7.7\lakh{} of normal profit to get there. Its smaller percentage
+drop is misleading, because it starts lower and so has less to lose. The
+difference is not significant ($t=+1.69$, $n=30$). This is why we show the drop
+next to the actual profit.
 
 \subsection{Explainer Accuracy}
 
-We scored 30 real decisions (6 days $\times$ 10 products)
-(Table~\ref{tab:explainer}). The LLM was reachable on every call after
-retries. Five of 30 raw outputs contained a number the simulator never
-produced; they read fluently and a buyer would not have noticed. The check
-caught all five and substituted the template, so every explanation shown was
-correct and complete. Without the check, one explanation in six would carry a
-made-up figure.
+We scored 30 real decisions (6 days $\times$ 10 products), shown in
+Table~\ref{tab:explainer}. The LLM answered every call once retries were
+allowed. In five of the 30 raw outputs there was a number the simulator never
+produced. They read fluently, and a buyer would probably not have noticed. The
+check caught all five and showed the template instead, so every explanation the
+user saw was correct and complete. Without the check, about one explanation in
+six would have carried a made-up figure.
 
 \begin{table}[t]
 \centering\small
@@ -457,67 +489,48 @@ made-up figure.
 \toprule
 Measure & Result \\
 \midrule
-LLM reachable (after retries) & 100\% \\
-Grounded (raw output) & 83\% (25/30) \\
+LLM answered (after retries) & 100\% \\
+Only real numbers (raw output) & 83\% (25/30) \\
 Complete & 100\% \\
 \textbf{Raw model accuracy} & \textbf{83\%} \\
 \textbf{Delivered accuracy} & \textbf{100\%} \\
 Length & 2.9 sentences, 58 words \\
 \bottomrule
 \end{tabular}
-\caption{Explainer evaluation on 30 decisions. Raw accuracy is grounded and
-complete before the check; delivered accuracy is what the user saw.}
+\caption{Explainer results on 30 decisions. Raw accuracy means all numbers were
+real and the key details present, before the check. Delivered accuracy is what
+the user saw.}
 \label{tab:explainer}
 \end{table}
 
-An earlier version of the metric scored only outputs that had already passed
-the check and so reported 100\% for a model that invented numbers 17\% of the
-time. That value was true and uninformative; we report both.
-
-\subsection{Is the Data Too Old?}
-
-The simulator uses the \emph{shape} of demand, not prices or volumes, so the
-relevant question is whether that shape is a feature of retail or of one
-period. Splitting the two years into two halves and measuring each
-(Figure~\ref{fig:stability}), the weekday pattern matches strongly
-($r=0.87$) and November is the peak month in both. The month pattern is weaker
-($r=0.51$, or $0.64$ excluding December, which is partly a data-window
-artifact), and burstiness (variance over mean) is extreme in both years (224
-and 474). This supports the two features the simulator relies on most. It
-cannot speak to demand today, which stays a limitation (Section 9).
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.9\textwidth]{figures/08_pattern_stability.png}
-\caption{Demand pattern in year 1 (December 2009--November 2010) against
-year 2 (December 2010--November 2011).}
-\label{fig:stability}
-\end{figure*}
+Our first version of this metric only scored outputs that had already passed the
+check. It reported 100\% for a model that invented numbers in 17\% of cases,
+which told us nothing about the model, so we now report both figures.
 
 % ------------------------------------------------------------- 7 error
 \section{Error Analysis}
 
 Where does the \Rs 8.1\lakh{} gap come from? Figure~\ref{fig:trace} shows one
-traced run; the aggregate numbers in Table~\ref{tab:main} agree.
+traced run, and the averages in Table~\ref{tab:main} agree with it.
 
 \begin{itemize}
   \item \textbf{Ordering fees.} The agent pays \Rs 5.8\lakh{} against
-    \Rs 2.9\lakh{}. It spreads orders across all three suppliers: in the
-    traced run it placed 719 orders, the classical policy 323, almost all with
-    the cheap supplier.
-  \item \textbf{Fill rate.} 95.1\% against 97.9\%; the agent runs out more
-    often, costing about \Rs 3\lakh{} more in stockout penalties.
-  \item \textbf{Overflow.} The agents are the only methods with zero overflow
-    loss: they learned the shared-warehouse rule. Every classical policy
-    wastes some.
+    \Rs 2.9\lakh{} for the best classical policy. It spreads its orders over
+    all three suppliers. In the traced run it placed 719 orders and the
+    classical policy placed 323, almost all with the cheap supplier.
+  \item \textbf{Fill rate.} It is 95.1\% against 97.9\%. The agent runs out of
+    stock more often, which costs about \Rs 3\lakh{} extra in penalties.
+  \item \textbf{Overflow.} Only the RL agents have zero overflow loss. They
+    learned the shared-warehouse limit, while every classical policy wastes
+    some goods.
 \end{itemize}
 
-The cause of the fee gap is an observability gap. The 88 inputs contain nothing
-about the agent's own ordering history: no days since the last order, no
-running total of fees, no record of the last supplier used. It pays double and
-cannot see that it does. This is a limit on what the agent observes, not a
-tuning problem, and adding a few history features per product is the most
-promising untried change; we have not tested it.
+We think the reason for the fee gap is that the agent cannot observe its own
+history. None of the 88 inputs says how long ago it last ordered, how much it
+has paid in fees, or which supplier it used last. So it pays double and has no
+way to notice. This is about what the agent can see, so more tuning would not
+fix it. Adding a few history features per product looks like the most
+promising change, but we have not tried it yet.
 
 \begin{figure*}[t]
 \centering
@@ -530,82 +543,78 @@ warehouse fill, cumulative profit, and the supplier mix (panel D).}
 % ---------------------------------------------------- 8 efficiency / deploy
 \section{Efficiency and Deployment}
 
-Everything trains on commodity hardware. A 1M-step run takes about 48 minutes
-on a laptop CPU; the 2M-step runs took about 4.8 hours on Kaggle.
-Curriculum training is roughly twice as expensive per step as calm training
-(measured at 156 steps per second). We did not measure inference latency or
-memory.
+Everything was trained on ordinary hardware. A 1M-step run takes about 48
+minutes on a laptop CPU, and each 2M-step run took about 1.5 hours on Kaggle.
+Training on crises costs roughly twice as much per step as normal training (we
+measured 156 steps per second). We did not measure inference speed or memory
+use.
 
-The result argues for a shadow-mode deployment, which the dashboard
-implements: the tuned classical policy is the engine a buyer would run, the
-agent runs beside it, logged and scored but not acting, and the explainer
-covers whichever decision is shown. When the challenger beats the engine
-consistently on live data it can be promoted. Still missing for real use:
-handling new products with no history, order-value limits, an audit trail,
-a live data feed, and a signal that a human should decide when the system is
-unsure.
+Our results point to shadow mode, which is how the dashboard works. The tuned
+classical policy is the engine a buyer would run. The agent runs beside it, and
+its decisions are logged and scored but not carried out. The explainer covers
+whichever decision is on screen. If the challenger beats the engine steadily on
+live data, it could then be promoted. Several things are still missing before
+real use: handling of new products with no history, limits on order value, an
+audit trail, a live data feed, and a signal that tells a human to take over
+when the system is unsure.
 
 % --------------------------------------------------------- 9 limitations
 \section{Limitations}
 
-We list these in descending order of how much they should change a reader's
-confidence.
-
-\paragraph{Data age.}
-The data is UK retail from 2009--2011. We showed the demand shape is stable
-across the two years we have, but nothing here speaks to current demand, and
-recent product-level retail data is not public.
+The first two matter most.
 
 \paragraph{Invented suppliers.}
-Lead times, reliability, and fees are hand-set to span the standard trade-off.
-No public dataset records them, so absolute rupee values are not forecasts.
+Lead times, reliability and fees were set by hand to cover the usual
+trade-off. No public dataset records them, so the rupee values should be read as
+relative comparisons and not as forecasts.
 
-\paragraph{Unequal difficulty in curriculum training.}
-The crisis-trained agent faced a harder task with the same step budget, so part
-of its weaker result may be under-training rather than the method failing.
+\paragraph{Unequal difficulty in crisis training.}
+The crisis-trained agent had a harder task with the same number of steps, so
+part of its weaker result may come from under-training and not from the method.
 
 \paragraph{Explainer sample.}
-30 decisions, one method, one seed. The explainer is a checked restatement of
-computed facts, not an account of the network's reasoning, and we do not claim
-otherwise.
+We tested 30 decisions with one model setup and one seed. The explainer
+restates computed facts. It does not describe how the network reasons, and we
+do not claim that it does.
 
 \paragraph{One shop, ten products.}
-Other categories, larger assortments, and other cost structures are untested.
+Other product categories, larger ranges and other cost structures were not
+tested.
 
 \paragraph{Free LLM endpoints.}
-Free models rate-limit; explanations can take up to a minute and sometimes fall
-back to the template.
+Free models are rate-limited, so an explanation can take up to a minute and
+sometimes falls back to the template.
 
 % -------------------------------------------------------- 10 broader impact
 \section{Broader Impact}
 
-The agent should not be deployed today: it earns less than a simpler method and
-is not more robust. The honest use is as a scored challenger. Two risks deserve
-naming. An explanation that reads smoothly can lend unwarranted confidence to a
-wrong decision, which is why the numbers are checked and why the explanation
-is described as a restatement rather than a reason. And because suppliers are
-invented and the data is old, rupee figures should be read as relative
-comparisons inside one simulator.
+We would not deploy the agent today, because it earns less than a simpler
+method and is no more robust. We would use it only as a scored challenger.
+There is one more risk to name. An explanation that reads smoothly can make a
+wrong decision look right. That is why the numbers are checked, and why we call
+the explanation a restatement of facts and not a reason. Because the suppliers
+are invented, the rupee figures are best read as comparisons inside one
+simulator.
 
 % ------------------------------------------------------------ 11 conclusion
 \section{Conclusion}
 
-A MaskablePPO agent reaches 90.8\% of the profit of a tuned classical
-policy on 30 held-out seeds, beats two of four classical policies, and beats a
-fixed daily order on 29 of 30 seeds, but the best classical policy still wins
-by \Rs 8.1\lakh{} per run ($t=-6.45$). The result is a negative one for the
-hypothesis that RL adapts better than a tuned formula: it did not, in calm
-conditions or in crisis. We think the part worth keeping is how the result was
-established. The baselines were tuned, the test seeds were separate, the
-crisis-trained agent was tested on unseen crises, and the percentage drop was
-shown beside absolute profit. Masking and tuning each had a measurable effect;
-crisis training did not. The explainer is accurate only because it is
-checked: 83\% raw, 100\% delivered.
+A MaskablePPO agent reaches 90.8\% of the profit of the best tuned classical
+policy on 30 held-out seeds. It beats two of the four classical policies and
+beats a fixed daily order on 29 of 30 seeds, but the best classical policy still
+wins by \Rs 8.1\lakh{} per run ($t=-6.45$). So the idea that RL would adapt
+better than a tuned formula did not hold up, either on normal days or in a
+crisis. What we can say with confidence comes from how we tested it. The
+baselines were tuned, the test seeds were kept separate, the crisis-trained
+agent was tested on crises it had never seen, and the percentage drop was shown
+next to the actual profit. Action masking and tuning each helped by a
+measurable amount, and training on crises did not. The explainer is accurate
+only because its output is checked: 83\% before the check and 100\% after.
 
-The clearest next step is indicated by the error analysis. The gap is fees from
-supplier fragmentation, and the agent cannot see its own ordering history, so
-giving it that history while keeping the same evaluation is the experiment
-most likely to change the headline result.
+The error analysis suggests the next step. The gap comes from fees caused by
+splitting orders across suppliers, and the agent cannot see its own ordering
+history. Giving it that history and repeating the same evaluation is the
+experiment most likely to change the main result.
 
 % -------------------------------------------------------------- references
 \begin{thebibliography}{99}\small
